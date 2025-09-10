@@ -24,11 +24,11 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Python Semantic Release
-        uses: python-semantic-release/python-semantic-release@v10.3.1
+        uses: python-semantic-release/python-semantic-release@v10.4.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
