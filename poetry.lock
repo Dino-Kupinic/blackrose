@@ -587,14 +587,14 @@ files = [
 
 [[package]]
 name = "ollama"
-version = "0.5.4"
+version = "0.6.0"
 description = "The official Python client for Ollama."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "ollama-0.5.4-py3-none-any.whl", hash = "sha256:6374c9bb4f2a371b3583c09786112ba85b006516745689c172a7e28af4d4d1a2"},
-    {file = "ollama-0.5.4.tar.gz", hash = "sha256:75857505a5d42e5e58114a1b78cc8c24596d8866863359d8a2329946a9b6d6f3"},
+    {file = "ollama-0.6.0-py3-none-any.whl", hash = "sha256:534511b3ccea2dff419ae06c3b58d7f217c55be7897c8ce5868dfb6b219cf7a0"},
+    {file = "ollama-0.6.0.tar.gz", hash = "sha256:da2b2d846b5944cfbcee1ca1e6ee0585f6c9d45a2fe9467cbcd096a37383da2f"},
 ]
 
 [package.dependencies]
