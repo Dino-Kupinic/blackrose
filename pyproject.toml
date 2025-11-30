@@ -9,15 +9,15 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-ruff = ">=0.11.2,<0.14.0"
+ruff = ">=0.11.2,<0.15.0"
 fastapi = ">=0.116.1"
 ollama = ">=0.5.1"
-pytest = ">=8.3.5,<9.0.0"
+pytest = ">=8.3.5,<10.0.0"
 mypy = ">=1.15.0,<2.0.0"
 mypy-extensions = ">=1.0.0,<2.0.0"
 
 [tool.poetry.group.dev.dependencies]
-python-semantic-release = "^10.4.0"
+python-semantic-release = "^10.5.2"
 
 [tool.poetry.extras]
 api = ["api"]
