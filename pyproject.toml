@@ -9,7 +9,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-ruff = ">=0.15.16,<0.16.0"
+ruff = ">=0.15.18,<0.16.0"
 fastapi = ">=0.136.3"
 ollama = ">=0.5.1"
 pytest = ">=8.3.5,<10.0.0"
