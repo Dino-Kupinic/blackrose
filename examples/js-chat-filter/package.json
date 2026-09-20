@@ -1,0 +1,22 @@
+{
+  "name": "blackrose-js-chat-filter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Example: wrap a fake streamed chat call with Blackrose input/output checks",
+  "scripts": {
+    "start": "tsx main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "blackrose": "file:../../packages/js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
