@@ -17,7 +17,7 @@ jobs:
       run:
         working-directory: packages/python
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -42,7 +42,7 @@ jobs:
       run:
         working-directory: packages/js
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
