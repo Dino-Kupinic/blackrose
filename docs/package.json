@@ -7,13 +7,10 @@
   },
   "type": "module",
   "keywords": [
-    "python3",
-    "fastapi",
-    "ai",
-    "backend",
-    "documentation",
-    "llama3",
-    "ollama"
+    "typesafe",
+    "guardrails",
+    "llm",
+    "documentation"
   ],
   "author": "Dino Kupinic",
   "license": "ISC",

@@ -2,9 +2,9 @@ import { DefaultTheme } from "vitepress"
 
 export default {
   title: "Blackrose",
-  description: "✨ powered by llama3",
+  description: "TypeSafe decision layer for LLM apps — allow | review | block",
   sitemap: {
-    hostname: "https://ai-backend.vercel.app"
+    hostname: "https://blackrose.dev"
   },
   lang: "en-US",
   themeConfig: {
@@ -12,7 +12,7 @@ export default {
     socialLinks: [
       {
         icon: "github",
-        link: "https://github.com/Dino-Kupinic/ai-backend.git"
+        link: "https://github.com/Dino-Kupinic/blackrose"
       },
       {
         icon: "twitter",
@@ -28,7 +28,7 @@ export default {
     }
   },
   editLink: {
-    pattern: "https://github.com/Dino-Kupinic/ai-backend/edit/main/docs/:path",
+    pattern: "https://github.com/Dino-Kupinic/blackrose/edit/main/docs/:path",
     text: "Edit this page on GitHub"
   },
   lastUpdated: true
