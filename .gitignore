@@ -1,5 +1,6 @@
 docs/node_modules
 docs/src/.vitepress/cache
+node_modules/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -63,6 +64,8 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+blackrose.db
+blackrose.db-journal
 
 # Flask stuff:
 instance/
