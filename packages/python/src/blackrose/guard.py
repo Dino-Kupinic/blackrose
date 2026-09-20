@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from typesafe_sdk import AsyncTypeSafeClient, Question, TypeSafeClient
 

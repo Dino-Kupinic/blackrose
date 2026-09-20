@@ -2,10 +2,10 @@ import { noul } from "@typesafe-ai/sdk";
 import { describe, expect, it } from "vitest";
 
 import {
-  Guard,
-  Policy,
   defaultInputQuestions,
   defaultOutputQuestions,
+  Guard,
+  Policy,
   type SystemOneClient,
 } from "../src/index.js";
 

@@ -5,9 +5,9 @@
  */
 
 import {
-  TypeSafeClient,
   type Question,
   type SystemOneResult,
+  TypeSafeClient,
   type TypeSafeClientConfig,
 } from "@typesafe-ai/sdk";
 

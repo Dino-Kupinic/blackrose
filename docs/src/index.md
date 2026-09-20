@@ -22,7 +22,7 @@ features:
   - icon: 🐍
     title: Python and JavaScript
     details: Parity APIs under packages/python and packages/js.
-  - icon: 📚
-    title: Examples
-    details: Chat filters and a RAG passage-gate cookbook in examples/.
+  - icon: ⚡
+    title: Modern tooling
+    details: uv + Ruff for Python; bun + Biome for JavaScript.
 ---

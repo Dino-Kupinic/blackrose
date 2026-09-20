@@ -4,16 +4,16 @@
  * Decide before you generate — `checkInput` / `checkOutput` → allow | review | block.
  */
 
-export type { CheckResult, GuardState, Verdict } from "./types.js";
-export { decide, extractScores, answersView } from "./decide.js";
+export { answersView, decide, extractScores } from "./decide.js";
+export { Guard, type GuardOptions, type SystemOneClient } from "./guard.js";
 export {
-  Policy,
-  HARM_SEVERITY,
   defaultInputQuestions,
   defaultOutputQuestions,
+  HARM_SEVERITY,
+  Policy,
   type PolicyOptions,
   type PolicySide,
 } from "./policy.js";
-export { Guard, type GuardOptions, type SystemOneClient } from "./guard.js";
+export type { CheckResult, GuardState, Verdict } from "./types.js";
 
 export const VERSION = "0.1.0";

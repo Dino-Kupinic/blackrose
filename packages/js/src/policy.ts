@@ -4,7 +4,7 @@
  * Mirrors packages/python/src/blackrose/policy.py.
  */
 
-import { noul, score, type Question } from "@typesafe-ai/sdk";
+import { noul, type Question, score } from "@typesafe-ai/sdk";
 
 function makeNoul(instructions: string, yes: string, no: string) {
   return noul(instructions, { true: yes, false: no });

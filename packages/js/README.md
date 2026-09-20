@@ -7,12 +7,12 @@ See the repository root [README](../../README.md) for product thesis and setup.
 ## Install
 
 ```bash
-npm install blackrose
+bun add blackrose
 # or from this monorepo:
-npm install ./packages/js
+bun install
 ```
 
-Requires Node.js 20+ and a TypeSafe API key (`TYPESAFE_API_KEY`).
+Requires Bun 1.1+ (Node 20+ compatible publish) and a TypeSafe API key (`TYPESAFE_API_KEY`).
 
 ## Quickstart
 
@@ -37,9 +37,11 @@ if (result.verdict === "allow") {
 
 ```bash
 cd packages/js
-npm install
-npm test
-npm run build
+bun install
+bun run lint
+bun run typecheck
+bun run test
+bun run build
 ```
 
 Tests mock TypeSafe responses — no live API key required.

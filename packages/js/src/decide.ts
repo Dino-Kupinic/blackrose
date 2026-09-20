@@ -64,12 +64,7 @@ export function extractScores(raw: unknown): Record<string, number> {
     }
     const choice = attr(answer, "choice");
     const probs = attr(answer, "probabilities");
-    if (
-      choice != null &&
-      probs != null &&
-      typeof probs === "object" &&
-      !Array.isArray(probs)
-    ) {
+    if (choice != null && probs != null && typeof probs === "object" && !Array.isArray(probs)) {
       const p = asFloat((probs as Record<string, unknown>)[String(choice)]);
       if (p != null) scores[name] = p;
     }
@@ -94,14 +89,10 @@ export function decide(raw: unknown, policy: Policy): CheckResult {
     if (noul != null) {
       if (noul >= policy.blockThreshold && policy.blockChecks.has(name)) {
         triggered.add("block");
-        reasons.push(
-          `${name}=${noul.toFixed(2)} >= block_threshold (${policy.blockThreshold})`,
-        );
+        reasons.push(`${name}=${noul.toFixed(2)} >= block_threshold (${policy.blockThreshold})`);
       } else if (noul >= policy.reviewThreshold) {
         triggered.add("review");
-        reasons.push(
-          `${name}=${noul.toFixed(2)} >= review_threshold (${policy.reviewThreshold})`,
-        );
+        reasons.push(`${name}=${noul.toFixed(2)} >= review_threshold (${policy.reviewThreshold})`);
       }
       continue;
     }
@@ -117,9 +108,7 @@ export function decide(raw: unknown, policy: Policy): CheckResult {
       }
       if (score >= policy.harmBlockScore) {
         triggered.add("block");
-        reasons.push(
-          `${name}=${score.toFixed(2)} >= harm_block_score (${policy.harmBlockScore})`,
-        );
+        reasons.push(`${name}=${score.toFixed(2)} >= harm_block_score (${policy.harmBlockScore})`);
       } else if (score >= policy.harmReviewScore) {
         triggered.add("review");
         reasons.push(
@@ -139,8 +128,7 @@ export function decide(raw: unknown, policy: Policy): CheckResult {
     }
   }
 
-  const verdict: Verdict =
-    PRECEDENCE.find((v) => triggered.has(v)) ?? "allow";
+  const verdict: Verdict = PRECEDENCE.find((v) => triggered.has(v)) ?? "allow";
 
   return { verdict, reasons, scores, raw };
 }

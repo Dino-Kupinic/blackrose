@@ -4,19 +4,29 @@
 
 Blackrose is an open-source decision layer for LLM apps. It runs typed [TypeSafe](https://typesafe.ai) (System One) checks on model input and output, applies confidence thresholds in *your* code, and returns `allow | review | block` with reasons and raw scores. Generation stays outside the library.
 
-## Why TypeSafe
+## Tooling
 
-LLMs are built to write text. Guardrails need structured judgments your code can branch on. TypeSafe’s Choice, Score, and Noul primitives return calibrated probabilities (and confidence on Choice/Score) in one parallel request. Blackrose maps those answers onto a simple verdict so you keep policy thresholds in application code—not buried in a system prompt an attacker can talk past.
+| Area | Stack |
+| --- | --- |
+| Python (`packages/python`) | [uv](https://docs.astral.sh/uv/) + Ruff + pytest |
+| JavaScript (`packages/js`) | [bun](https://bun.sh) + Biome + TypeScript + Vitest |
+| Docs (`docs`) | bun + VitePress |
+
+No root task runner — use the commands below (or your editor).
 
 ## Install
 
 ```bash
-pip install -e packages/python
-# or, once published:
-# pip install blackrose
+cd packages/python && uv sync --all-groups
+# or, once published: uv add blackrose / pip install blackrose
 ```
 
-Requires Python 3.10+ and a TypeSafe API key.
+```bash
+cd packages/js && bun install
+# or, once published: bun add blackrose
+```
+
+Requires Python 3.10+ (dev pinned to 3.12), Bun 1.1+, and a TypeSafe API key.
 
 ## Quickstart
 
@@ -73,15 +83,7 @@ The official SDK also honors `TYPESAFE_DEFAULT_MODEL`; Blackrose prefers `TYPESA
 
 1. **Key** — copy `.env.example` → `.env` and set `TYPESAFE_API_KEY` (optional `TYPESAFE_MODEL`).
 2. **First check** — install a package and call `check_input` / `check_output` (see Quickstart above).
-3. **Wire into a chat handler** — check the user message before you call the LLM; check the model reply before you show it. Start from an example:
-
-| Example | Language | Run |
-| --- | --- | --- |
-| [`examples/python-chat-filter`](examples/python-chat-filter) | Python | `pip install -e ../../packages/python` then `python main.py` |
-| [`examples/js-chat-filter`](examples/js-chat-filter) | Node / TS | `npm install && npm start` (links `packages/js`) |
-| [`examples/rag-passage-gate`](examples/rag-passage-gate) | Python | `pip install -e ../../packages/python` then `python main.py` |
-
-Live TypeSafe calls need `TYPESAFE_API_KEY`. Examples exit with a clear error if it is missing.
+3. **Wire into a chat handler** — check the user message before you call the LLM; check the model reply before you show it.
 
 ## Packages
 
@@ -90,13 +92,30 @@ Live TypeSafe calls need `TYPESAFE_API_KEY`. Examples exit with a clear error if
 | `packages/python` | Python library (`blackrose`) |
 | `packages/js` | JavaScript/TypeScript library (parity API) |
 
-## Tests
+## Develop / test
 
 Package unit tests mock TypeSafe responses and do not need a live API key:
 
 ```bash
-cd packages/python && pip install -e ".[dev]" && pytest
-cd packages/js && npm test
+# Python
+cd packages/python
+uv sync --all-groups
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run pytest
+
+# JavaScript
+cd packages/js
+bun install
+bun run lint
+bun run typecheck
+bun run test
+bun run build
+
+# Docs
+cd docs
+bun install
+bun run docs:dev
 ```
 
 ## License
