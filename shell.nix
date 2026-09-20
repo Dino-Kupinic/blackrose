@@ -3,7 +3,7 @@ in pkgs.mkShell {
   packages = with pkgs; [
     git
     python3
-    ollama
+    nodejs_20
     curl
   ];
 }
