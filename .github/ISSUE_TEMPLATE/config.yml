@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://blackrose.dev
+    about: Guides for Policy, verdicts, and the Python / JavaScript APIs
+  - name: TypeSafe
+    url: https://typesafe.ai
+    about: Upstream System One API and SDK docs

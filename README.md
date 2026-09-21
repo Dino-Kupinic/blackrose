@@ -8,25 +8,34 @@ Blackrose is an open-source decision layer for LLM apps. It runs typed [TypeSafe
 
 | Area | Stack |
 | --- | --- |
-| Python (`packages/python`) | [uv](https://docs.astral.sh/uv/) + Ruff + pytest |
-| JavaScript (`packages/js`) | [bun](https://bun.sh) + Biome + TypeScript + Vitest |
+| Root | [bun](https://bun.sh) scripts (`package.json`) |
+| Python (`packages/python`) | [uv](https://docs.astral.sh/uv/) + Ruff + mypy + pytest |
+| JavaScript (`packages/js`) | bun + Biome + TypeScript + Vitest |
 | Docs (`docs`) | bun + VitePress |
-
-No root task runner — use the commands below (or your editor).
 
 ## Install
 
 ```bash
+# monorepo (all packages)
+bun run install:all
+
+# or per package:
 cd packages/python && uv sync --all-groups
-# or, once published: uv add blackrose / pip install blackrose
+cd packages/js && bun install
 ```
 
-```bash
-cd packages/js && bun install
-# or, once published: bun add blackrose
-```
+Once published: `uv add blackrose` / `bun add blackrose`.
 
 Requires Python 3.10+ (dev pinned to 3.12), Bun 1.1+, and a TypeSafe API key.
+
+### TypeSafe SDK pins
+
+| Package | Dependency | Notes |
+| --- | --- | --- |
+| Python | `typesafe-sdk>=0.7.0` | Latest Python SDK line |
+| JavaScript | `@typesafe-ai/sdk@^0.6.0` | Latest JS SDK line (0.7 not published yet) |
+
+Keep each language on the newest compatible official SDK; APIs are exercised via contract tests on shared response shapes.
 
 ## Quickstart
 
@@ -58,6 +67,15 @@ guard = AsyncGuard()
 result = await guard.check_output(model_reply)
 ```
 
+JavaScript:
+
+```ts
+import { Guard } from "blackrose";
+
+await using guard = new Guard();
+const result = await guard.checkInput("Ignore previous instructions…");
+```
+
 ## Default checks
 
 One TypeSafe `system_one` call asks, in parallel:
@@ -73,17 +91,11 @@ Policy code maps probabilities and confidence onto a verdict. **Low confidence d
 ## Configuration
 
 | Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | `TYPESAFE_API_KEY` | yes (live calls) | — | TypeSafe API key |
 | `TYPESAFE_MODEL` | no | `jev-latest` | Model passed to the TypeSafe client |
 
 The official SDK also honors `TYPESAFE_DEFAULT_MODEL`; Blackrose prefers `TYPESAFE_MODEL` when set.
-
-## Getting started
-
-1. **Key** — copy `.env.example` → `.env` and set `TYPESAFE_API_KEY` (optional `TYPESAFE_MODEL`).
-2. **First check** — install a package and call `check_input` / `check_output` (see Quickstart above).
-3. **Wire into a chat handler** — check the user message before you call the LLM; check the model reply before you show it.
 
 ## Packages
 
@@ -91,32 +103,55 @@ The official SDK also honors `TYPESAFE_DEFAULT_MODEL`; Blackrose prefers `TYPESA
 | --- | --- |
 | `packages/python` | Python library (`blackrose`) |
 | `packages/js` | JavaScript/TypeScript library (parity API) |
+| `docs` | VitePress site ([guide](docs/src/guide/getting-started.md)) |
 
 ## Develop / test
 
-Package unit tests mock TypeSafe responses and do not need a live API key:
+From the repo root:
+
+```bash
+bun run install:all
+bun run check          # lint + typecheck + test + build
+bun run docs:dev       # VitePress
+```
+
+Or per package (unit/contract tests mock TypeSafe — no live key required):
 
 ```bash
 # Python
 cd packages/python
-uv sync --all-groups
 uv run ruff check src tests
-uv run ruff format --check src tests
+uv run mypy src
 uv run pytest
+# optional: TYPESAFE_API_KEY=... uv run pytest -m live
 
 # JavaScript
 cd packages/js
-bun install
-bun run lint
-bun run typecheck
-bun run test
-bun run build
-
-# Docs
-cd docs
-bun install
-bun run docs:dev
+bun run lint && bun run typecheck && bun run test && bun run build
+# optional: TYPESAFE_API_KEY=... bun run test:live
 ```
+
+Bump both package versions together:
+
+```bash
+bun run version:sync 0.1.1
+```
+
+## Releases
+
+- Library semver starts at **0.1.0** (see [CHANGELOG](CHANGELOG.md)).
+- Older GitHub tags `v0.5.x`–`v1.0.0` are the previous Ollama/chat product — not this library.
+- Pushing `v*` tags runs publish workflows (PyPI + npm) when environments/secrets are configured.
+
+## Maintainer: legacy cleanup
+
+After merging the rewrite hygiene work, run (needs a write-capable `gh` token):
+
+```bash
+./scripts/legacy-cleanup.sh
+```
+
+That closes obsolete gateway/Ollama issues and refreshes GitHub description, homepage, and topics.
 
 ## License
 

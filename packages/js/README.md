@@ -12,7 +12,7 @@ bun add blackrose
 bun install
 ```
 
-Requires Bun 1.1+ (Node 20+ compatible publish) and a TypeSafe API key (`TYPESAFE_API_KEY`).
+Requires Bun 1.1+ (Node 20+ compatible publish), `@typesafe-ai/sdk` `^0.6.0`, and a TypeSafe API key (`TYPESAFE_API_KEY`).
 
 ## Quickstart
 

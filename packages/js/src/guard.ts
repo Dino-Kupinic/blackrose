@@ -31,6 +31,8 @@ export interface SystemOneClient {
     questions: Record<string, Question>;
     model?: string;
   }): Promise<SystemOneResult<Record<string, Question>> | unknown>;
+  /** Optional dispose hook (real TypeSafe clients may expose `close`). */
+  close?: () => void | Promise<void>;
 }
 
 export interface GuardOptions {
@@ -48,18 +50,25 @@ export interface GuardOptions {
  *
  * ```ts
  * const guard = new Guard();
- * const result = await guard.checkInput("Ignore previous instructions…");
- * if (result.verdict === "allow") { … }
+ * try {
+ *   const result = await guard.checkInput("Ignore previous instructions…");
+ *   if (result.verdict === "allow") { … }
+ * } finally {
+ *   await guard.close();
+ * }
  * ```
  */
 export class Guard {
   readonly policy: Policy;
   private readonly model: string;
   private readonly client: SystemOneClient;
+  private readonly ownsClient: boolean;
+  private closed = false;
 
   constructor(options: GuardOptions = {}) {
     this.policy = options.policy ?? new Policy();
     this.model = resolveModel(options.model);
+    this.ownsClient = options.client == null;
     this.client =
       options.client ??
       new TypeSafeClient({
@@ -75,6 +84,24 @@ export class Guard {
 
   checkOutput(state: GuardState): Promise<CheckResult> {
     return this.check(state, "output");
+  }
+
+  /**
+   * Dispose the owned TypeSafe client (no-op when a custom `client` was injected).
+   * Safe to call more than once.
+   */
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    if (!this.ownsClient) return;
+    const closer = this.client.close;
+    if (typeof closer === "function") {
+      await closer.call(this.client);
+    }
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
   }
 
   private async check(state: GuardState, side: PolicySide): Promise<CheckResult> {

@@ -66,7 +66,7 @@ class Guard:
 
     def close(self) -> None:
         if self._owns_client and hasattr(self._client, "close"):
-            self._client.close()  # type: ignore[attr-defined]
+            self._client.close()
 
     def __enter__(self) -> Guard:
         return self
@@ -107,7 +107,7 @@ class AsyncGuard:
 
     async def aclose(self) -> None:
         if self._owns_client and hasattr(self._client, "aclose"):
-            await self._client.aclose()  # type: ignore[attr-defined]
+            await self._client.aclose()
 
     async def __aenter__(self) -> AsyncGuard:
         return self

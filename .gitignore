@@ -1,6 +1,8 @@
 docs/node_modules
 docs/src/.vitepress/cache
+docs/src/.vitepress/dist
 node_modules/
+/bun.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

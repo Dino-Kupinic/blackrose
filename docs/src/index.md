@@ -11,18 +11,17 @@ hero:
     - theme: brand
       text: Get Started
       link: /guide/getting-started
+    - theme: alt
+      text: Policy
+      link: /guide/policy
 
 features:
-  - icon: 🛡️
-    title: Input and output checks
+  - title: Input and output checks
     details: check_input / check_output map TypeSafe answers onto allow | review | block.
-  - icon: 🎯
-    title: Thresholds in your code
+  - title: Thresholds in your code
     details: Policy owns confidence and probability cutoffs — not a buried system prompt.
-  - icon: 🐍
-    title: Python and JavaScript
+  - title: Python and JavaScript
     details: Parity APIs under packages/python and packages/js.
-  - icon: ⚡
-    title: Modern tooling
-    details: uv + Ruff for Python; bun + Biome for JavaScript.
+  - title: Conservative defaults
+    details: Low confidence becomes review, never a silent allow.
 ---
