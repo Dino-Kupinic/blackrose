@@ -13,7 +13,7 @@
     "documentation"
   ],
   "author": "Dino Kupinic",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "vitepress": "^1.2.3"
   }

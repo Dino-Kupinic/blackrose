@@ -1,38 +1,29 @@
 ---
 name: Bug report
-about: 'Create a report '
-title: ''
-labels: ''
-assignees: ''
-
+description: Report a bug in the Blackrose Python or JavaScript library
+title: "[bug] "
+labels: ["bug"]
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Package**
+- [ ] Python (`packages/python`)
+- [ ] JavaScript / TypeScript (`packages/js`)
+- [ ] Docs
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**Describe the bug**
+A clear and concise description of what went wrong.
+
+**To reproduce**
+Minimal code or steps (mock client preferred if no API key is involved).
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What you expected to happen (e.g. verdict, reasons, scores).
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+**Environment**
+- Blackrose version:
+- `typesafe-sdk` / `@typesafe-ai/sdk` version:
+- Runtime (Python / Node / Bun) version:
+- OS:
 
 **Additional context**
-Add any other context about the problem here.
+Logs, `CheckResult` payload, or related PR/issue links.

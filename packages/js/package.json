@@ -41,6 +41,7 @@
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -62,5 +63,8 @@
     "url": "https://github.com/dinokupinic/blackrose.git",
     "directory": "packages/js"
   },
-  "homepage": "https://github.com/dinokupinic/blackrose#readme"
+  "homepage": "https://blackrose.dev",
+  "bugs": {
+    "url": "https://github.com/Dino-Kupinic/blackrose/issues"
+  }
 }

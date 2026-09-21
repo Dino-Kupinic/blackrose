@@ -1,9 +1,9 @@
 import { defineConfig } from "vitest/config";
 
+/** Live suite only — requires TYPESAFE_API_KEY. */
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
-    exclude: ["tests/live.test.ts"],
+    include: ["tests/live.test.ts"],
   },
 });

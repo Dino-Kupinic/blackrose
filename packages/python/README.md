@@ -11,5 +11,8 @@ cd packages/python
 uv sync --all-groups
 uv run ruff check src tests
 uv run ruff format --check src tests
+uv run mypy src
 uv run pytest
 ```
+
+TypeSafe SDK: `typesafe-sdk>=0.7.0` (see root README for JS pin notes).
