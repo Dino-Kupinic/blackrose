@@ -1,17 +1,19 @@
-import { noul } from "@typesafe-ai/sdk";
+import { noul, type Question } from "@typesafe-ai/sdk";
 import { describe, expect, it } from "vitest";
 
+import { GuardClosedError, TypeSafeRequestError } from "../src/errors.js";
 import {
   defaultInputQuestions,
   defaultOutputQuestions,
   Guard,
+  type GuardState,
   Policy,
   type SystemOneClient,
 } from "../src/index.js";
 
 type Call = {
-  state: unknown;
-  questions: Record<string, unknown>;
+  state: GuardState;
+  questions: Record<string, Question>;
   model?: string;
 };
 
@@ -21,11 +23,14 @@ class FakeClient implements SystemOneClient {
   constructor(private readonly response: unknown) {}
 
   async systemOne(request: {
-    state: unknown;
-    questions: Record<string, unknown>;
+    state: GuardState;
+    questions: Record<string, Question>;
     model?: string;
   }): Promise<unknown> {
     this.calls.push(request);
+    if (this.response instanceof Error) {
+      throw this.response;
+    }
     return this.response;
   }
 }
@@ -40,6 +45,11 @@ const JAILBREAK = {
   jailbreak: { noul: 0.98 },
   harm: { score: 1.1, confidence: 0.9 },
   needs_human: { noul: 0.4 },
+};
+
+const PARTIAL = {
+  jailbreak: { noul: 0.02 },
+  harm: { score: 0.1, confidence: 0.9 },
 };
 
 describe("Guard", () => {
@@ -96,5 +106,43 @@ describe("Guard", () => {
     const guard = new Guard({ client });
     const result = await guard.checkOutput("maybe?");
     expect(result.verdict).toBe("review");
+  });
+
+  it("reviews when an expected check is missing from the response", async () => {
+    const client = new FakeClient(PARTIAL);
+    const guard = new Guard({ client });
+    const result = await guard.checkInput("hello");
+    expect(result.verdict).toBe("review");
+    expect(result.codes).toContain("missing_check:needs_human");
+  });
+
+  it("trims blank model and falls back to env", async () => {
+    const previous = process.env.TYPESAFE_MODEL;
+    process.env.TYPESAFE_MODEL = "from-env";
+    try {
+      const client = new FakeClient(SAFE);
+      const guard = new Guard({ client, model: "  " });
+      await guard.checkInput("hi");
+      expect(client.calls[0]?.model).toBe("from-env");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.TYPESAFE_MODEL;
+      } else {
+        process.env.TYPESAFE_MODEL = previous;
+      }
+    }
+  });
+
+  it("wraps SDK failures as TypeSafeRequestError", async () => {
+    const client = new FakeClient(new Error("timeout"));
+    const guard = new Guard({ client });
+    await expect(guard.checkInput("hi")).rejects.toBeInstanceOf(TypeSafeRequestError);
+  });
+
+  it("rejects checks after close", async () => {
+    const client = new FakeClient(SAFE);
+    const guard = new Guard({ client });
+    await guard.close();
+    await expect(guard.checkInput("hi")).rejects.toBeInstanceOf(GuardClosedError);
   });
 });

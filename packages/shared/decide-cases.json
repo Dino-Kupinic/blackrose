@@ -1,0 +1,252 @@
+[
+  {
+    "name": "allow_when_all_signals_low",
+    "raw": {
+      "jailbreak": { "noul": 0.02 },
+      "harm": { "score": 0.1, "confidence": 0.9 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "verdict": "allow",
+    "codes": []
+  },
+  {
+    "name": "review_on_mid_noul",
+    "raw": {
+      "jailbreak": { "noul": 0.4 },
+      "harm": { "score": 0.2, "confidence": 0.9 },
+      "needs_human": { "noul": 0.1 }
+    },
+    "verdict": "review",
+    "codes": ["noul_review:jailbreak"]
+  },
+  {
+    "name": "block_on_high_jailbreak",
+    "raw": {
+      "jailbreak": { "noul": 0.95 },
+      "harm": { "score": 0.5, "confidence": 0.9 },
+      "needs_human": { "noul": 0.2 }
+    },
+    "verdict": "block",
+    "codes": ["noul_block:jailbreak"]
+  },
+  {
+    "name": "needs_human_high_is_review_not_block",
+    "raw": {
+      "jailbreak": { "noul": 0.05 },
+      "harm": { "score": 0.2, "confidence": 0.9 },
+      "needs_human": { "noul": 0.92 }
+    },
+    "verdict": "review",
+    "codes": ["noul_review:needs_human"]
+  },
+  {
+    "name": "harm_score_block",
+    "raw": {
+      "jailbreak": { "noul": 0.05 },
+      "harm": { "score": 2.4, "confidence": 0.85 },
+      "needs_human": { "noul": 0.1 }
+    },
+    "verdict": "block",
+    "codes": ["score_block:harm"]
+  },
+  {
+    "name": "low_confidence_forces_review_not_allow",
+    "raw": {
+      "jailbreak": { "noul": 0.05 },
+      "harm": { "score": 0.3, "confidence": 0.2 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "verdict": "review",
+    "codes": ["low_confidence:harm"]
+  },
+  {
+    "name": "low_confidence_does_not_downgrade_block",
+    "raw": {
+      "jailbreak": { "noul": 0.95 },
+      "harm": { "score": 0.3, "confidence": 0.1 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "verdict": "block",
+    "codes": ["noul_block:jailbreak", "low_confidence:harm"]
+  },
+  {
+    "name": "custom_noul_thresholds",
+    "policy": { "review_threshold": 0.2, "block_threshold": 0.5 },
+    "raw": {
+      "jailbreak": { "noul": 0.55 },
+      "harm": { "score": 0.0, "confidence": 0.99 },
+      "needs_human": { "noul": 0.0 }
+    },
+    "verdict": "block",
+    "codes": ["noul_block:jailbreak"]
+  },
+  {
+    "name": "empty_expected_and_empty_raw_reviews",
+    "raw": {},
+    "expected_checks": [],
+    "verdict": "review",
+    "codes": ["empty_response"]
+  },
+  {
+    "name": "null_raw_reviews",
+    "raw": null,
+    "verdict": "review",
+    "codes": ["empty_response"]
+  },
+  {
+    "name": "empty_answers_wrapper_reviews",
+    "raw": { "answers": {}, "model": "jev-latest", "usage": { "input_tokens": 1 } },
+    "verdict": "review",
+    "codes": ["empty_response"]
+  },
+  {
+    "name": "model_usage_only_is_not_flat_answers",
+    "raw": { "model": "jev-latest", "usage": { "input_tokens": 10 } },
+    "verdict": "review",
+    "codes": ["empty_response"]
+  },
+  {
+    "name": "missing_expected_check_reviews",
+    "raw": {
+      "jailbreak": { "noul": 0.02 },
+      "harm": { "score": 0.1, "confidence": 0.9 }
+    },
+    "expected_checks": ["jailbreak", "harm", "needs_human"],
+    "verdict": "review",
+    "codes": ["missing_check:needs_human"]
+  },
+  {
+    "name": "expected_checks_present_allows",
+    "raw": {
+      "jailbreak": { "noul": 0.02 },
+      "harm": { "score": 0.1, "confidence": 0.9 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "expected_checks": ["jailbreak", "harm", "needs_human"],
+    "verdict": "allow",
+    "codes": []
+  },
+  {
+    "name": "missing_score_confidence_reviews",
+    "raw": {
+      "jailbreak": { "noul": 0.05 },
+      "harm": { "score": 0.1 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "verdict": "review",
+    "codes": ["low_confidence:harm"]
+  },
+  {
+    "name": "high_harm_missing_confidence_still_blocks",
+    "raw": {
+      "jailbreak": { "noul": 0.05 },
+      "harm": { "score": 2.4 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "verdict": "block",
+    "codes": ["low_confidence:harm", "score_block:harm"]
+  },
+  {
+    "name": "noul_low_confidence_reviews",
+    "raw": {
+      "jailbreak": { "noul": 0.02, "confidence": 0.1 },
+      "harm": { "score": 0.1, "confidence": 0.9 },
+      "needs_human": { "noul": 0.05, "confidence": 0.9 }
+    },
+    "verdict": "review",
+    "codes": ["low_confidence:jailbreak"]
+  },
+  {
+    "name": "noul_null_confidence_allows_when_low",
+    "raw": {
+      "jailbreak": { "noul": 0.12, "confidence": null },
+      "harm": { "score": 0.4, "confidence": 0.88 },
+      "needs_human": { "noul": 0.08 }
+    },
+    "verdict": "allow",
+    "codes": []
+  },
+  {
+    "name": "custom_score_does_not_inherit_harm_block",
+    "raw": {
+      "jailbreak": { "noul": 0.02 },
+      "toxicity": { "score": 2.4, "confidence": 0.9 }
+    },
+    "verdict": "allow",
+    "codes": []
+  },
+  {
+    "name": "custom_score_with_thresholds_blocks",
+    "policy": {
+      "score_thresholds": { "toxicity": { "review": 0.5, "block": 0.9 } }
+    },
+    "raw": {
+      "toxicity": { "score": 1.2, "confidence": 0.9 }
+    },
+    "verdict": "block",
+    "codes": ["score_block:toxicity"]
+  },
+  {
+    "name": "choice_low_confidence_reviews",
+    "raw": {
+      "answers": {
+        "topic": {
+          "type": "choice",
+          "choice": "billing",
+          "confidence": 0.2,
+          "probabilities": { "billing": 0.55, "other": 0.45 }
+        }
+      }
+    },
+    "verdict": "review",
+    "codes": ["low_confidence:topic"]
+  },
+  {
+    "name": "choice_missing_confidence_reviews",
+    "raw": {
+      "answers": {
+        "topic": {
+          "type": "choice",
+          "choice": "billing",
+          "probabilities": { "billing": 0.55, "other": 0.45 }
+        }
+      }
+    },
+    "verdict": "review",
+    "codes": ["low_confidence:topic"]
+  },
+  {
+    "name": "answers_wrapper_allows",
+    "raw": {
+      "answers": {
+        "jailbreak": { "type": "noul", "noul": 0.12, "confidence": null },
+        "harm": { "type": "score", "score": 0.4, "confidence": 0.88 },
+        "needs_human": { "type": "noul", "noul": 0.08 }
+      },
+      "model": "jev-latest",
+      "usage": { "input_tokens": 42, "output_tokens": 0 }
+    },
+    "verdict": "allow",
+    "codes": []
+  },
+  {
+    "name": "bucketed_nouls_scores_blocks_jailbreak",
+    "raw": {
+      "nouls": { "jailbreak": { "noul": 0.91 } },
+      "scores": { "harm": { "score": 0.5, "confidence": 0.9 } },
+      "choices": {}
+    },
+    "verdict": "block",
+    "codes": ["noul_block:jailbreak"]
+  },
+  {
+    "name": "empty_string_score_is_not_zero",
+    "raw": {
+      "jailbreak": { "noul": 0.02 },
+      "harm": { "score": "", "confidence": 0.9 },
+      "needs_human": { "noul": 0.05 }
+    },
+    "verdict": "allow",
+    "codes": []
+  }
+]

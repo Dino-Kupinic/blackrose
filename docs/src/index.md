@@ -23,5 +23,5 @@ features:
   - title: Python and JavaScript
     details: Parity APIs under packages/python and packages/js.
   - title: Conservative defaults
-    details: Low confidence becomes review, never a silent allow.
+    details: Low or missing confidence, empty answers, and missing checks become review — never a silent allow.
 ---

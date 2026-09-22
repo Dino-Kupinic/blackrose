@@ -15,7 +15,7 @@
     "typecheck:python": "cd packages/python && uv run mypy src",
     "typecheck:js": "cd packages/js && bun run typecheck",
     "test": "bun run test:python && bun run test:js",
-    "test:python": "cd packages/python && uv run pytest",
+    "test:python": "cd packages/python && uv run pytest -m \"not live\"",
     "test:js": "cd packages/js && bun run test",
     "build": "bun run build:js && bun run build:docs",
     "build:js": "cd packages/js && bun run build",

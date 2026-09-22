@@ -2,7 +2,7 @@
 
 Open-source TypeSafe decision layer: `check_input` / `check_output` → `allow | review | block`.
 
-See the repository root [README](../../README.md) for install and quickstart.
+See the repository root [README](../../README.md) for install and quickstart, and [SECURITY.md](../../SECURITY.md) for fail-closed behavior.
 
 ## Develop
 
@@ -12,7 +12,7 @@ uv sync --all-groups
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run mypy src
-uv run pytest
+uv run pytest -m "not live"
 ```
 
 TypeSafe SDK: `typesafe-sdk>=0.7.0` (see root README for JS pin notes).
