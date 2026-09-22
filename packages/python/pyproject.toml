@@ -65,7 +65,10 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -74,7 +77,3 @@ mypy_path = "src"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
-
-[[tool.mypy.overrides]]
-module = ["typesafe_sdk", "typesafe_sdk.*"]
-ignore_missing_imports = true

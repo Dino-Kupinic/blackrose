@@ -12,6 +12,7 @@ import {
 } from "@typesafe-ai/sdk";
 
 import { decide } from "./decide.js";
+import { BlackroseError, GuardClosedError, TypeSafeRequestError } from "./errors.js";
 import { Policy, type PolicySide } from "./policy.js";
 import type { CheckResult, GuardState } from "./types.js";
 
@@ -105,12 +106,23 @@ export class Guard {
   }
 
   private async check(state: GuardState, side: PolicySide): Promise<CheckResult> {
+    if (this.closed) {
+      throw new GuardClosedError("Guard is closed");
+    }
     const questions = this.policy.questionsFor(side);
-    const response = await this.client.systemOne({
-      state,
-      questions,
-      model: this.model,
-    });
-    return decide(response, this.policy);
+    let response: unknown;
+    try {
+      response = await this.client.systemOne({
+        state,
+        questions,
+        model: this.model,
+      });
+    } catch (err) {
+      if (err instanceof BlackroseError) throw err;
+      throw new TypeSafeRequestError("TypeSafe systemOne failed; fail closed (do not allow)", {
+        cause: err,
+      });
+    }
+    return decide(response, this.policy, { expectedChecks: Object.keys(questions) });
   }
 }

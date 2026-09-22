@@ -1,10 +1,54 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { decide, extractScores } from "../src/decide.js";
-import { Policy } from "../src/policy.js";
+import { answersView, decide, extractScores } from "../src/decide.js";
+import { Policy, type PolicyOptions } from "../src/policy.js";
 
-describe("decide", () => {
-  it("allows when all signals are low", () => {
+const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "../../shared/decide-cases.json");
+
+interface DecideCase {
+  name: string;
+  raw: unknown;
+  policy?: Record<string, unknown>;
+  expected_checks?: string[];
+  verdict: string;
+  codes: string[];
+}
+
+const cases = JSON.parse(readFileSync(fixturePath, "utf8")) as DecideCase[];
+
+function policyFromSpec(spec?: Record<string, unknown>): Policy {
+  if (spec == null) return new Policy();
+  const options: PolicyOptions = {};
+  if (spec.review_threshold != null) options.reviewThreshold = spec.review_threshold as number;
+  if (spec.block_threshold != null) options.blockThreshold = spec.block_threshold as number;
+  if (spec.harm_review_score != null) options.harmReviewScore = spec.harm_review_score as number;
+  if (spec.harm_block_score != null) options.harmBlockScore = spec.harm_block_score as number;
+  if (spec.min_confidence != null) options.minConfidence = spec.min_confidence as number;
+  if (spec.block_checks != null) options.blockChecks = spec.block_checks as string[];
+  if (spec.score_thresholds != null) {
+    options.scoreThresholds = spec.score_thresholds as PolicyOptions["scoreThresholds"];
+  }
+  return new Policy(options);
+}
+
+describe("decide (shared fixtures)", () => {
+  for (const testCase of cases) {
+    it(testCase.name, () => {
+      const result = decide(testCase.raw, policyFromSpec(testCase.policy), {
+        expectedChecks: testCase.expected_checks,
+      });
+      expect(result.verdict, testCase.name).toBe(testCase.verdict);
+      expect(result.codes, testCase.name).toEqual(testCase.codes);
+      expect(result.reasons).toEqual(result.triggers.map((t) => t.message));
+    });
+  }
+});
+
+describe("decide extras", () => {
+  it("allows when all signals are low and records scores", () => {
     const raw = {
       jailbreak: { noul: 0.02 },
       harm: { score: 0.1, confidence: 0.9 },
@@ -15,76 +59,6 @@ describe("decide", () => {
     expect(result.reasons).toEqual([]);
     expect(result.scores.jailbreak).toBe(0.02);
     expect(result.scores.harm).toBe(0.1);
-  });
-
-  it("reviews on mid noul", () => {
-    const raw = {
-      jailbreak: { noul: 0.4 },
-      harm: { score: 0.2, confidence: 0.9 },
-      needs_human: { noul: 0.1 },
-    };
-    const result = decide(raw, new Policy());
-    expect(result.verdict).toBe("review");
-    expect(result.reasons.some((r) => r.includes("jailbreak"))).toBe(true);
-  });
-
-  it("blocks on high jailbreak", () => {
-    const raw = {
-      jailbreak: { noul: 0.95 },
-      harm: { score: 0.5, confidence: 0.9 },
-      needs_human: { noul: 0.2 },
-    };
-    expect(decide(raw, new Policy()).verdict).toBe("block");
-  });
-
-  it("treats high needs_human as review, not block", () => {
-    const raw = {
-      jailbreak: { noul: 0.05 },
-      harm: { score: 0.2, confidence: 0.9 },
-      needs_human: { noul: 0.92 },
-    };
-    const result = decide(raw, new Policy());
-    expect(result.verdict).toBe("review");
-    expect(result.reasons.some((r) => r.includes("needs_human"))).toBe(true);
-  });
-
-  it("blocks on high harm score", () => {
-    const raw = {
-      jailbreak: { noul: 0.05 },
-      harm: { score: 2.4, confidence: 0.85 },
-      needs_human: { noul: 0.1 },
-    };
-    expect(decide(raw, new Policy()).verdict).toBe("block");
-  });
-
-  it("forces review on low confidence instead of allow", () => {
-    const raw = {
-      jailbreak: { noul: 0.05 },
-      harm: { score: 0.3, confidence: 0.2 },
-      needs_human: { noul: 0.05 },
-    };
-    const result = decide(raw, new Policy());
-    expect(result.verdict).toBe("review");
-    expect(result.reasons.some((r) => r.includes("confidence"))).toBe(true);
-  });
-
-  it("does not downgrade block when confidence is low", () => {
-    const raw = {
-      jailbreak: { noul: 0.95 },
-      harm: { score: 0.3, confidence: 0.1 },
-      needs_human: { noul: 0.05 },
-    };
-    expect(decide(raw, new Policy()).verdict).toBe("block");
-  });
-
-  it("respects custom thresholds", () => {
-    const policy = new Policy({ reviewThreshold: 0.2, blockThreshold: 0.5 });
-    const raw = {
-      jailbreak: { noul: 0.55 },
-      harm: { score: 0.0, confidence: 0.99 },
-      needs_human: { noul: 0.0 },
-    };
-    expect(decide(raw, policy).verdict).toBe("block");
   });
 
   it("extracts scores from nested SDK-shaped responses", () => {
@@ -107,5 +81,20 @@ describe("decide", () => {
     };
     expect(extractScores(raw)).toEqual({ jailbreak: 0.12, harm: 0.4 });
     expect(decide(raw, new Policy()).verdict).toBe("allow");
+  });
+
+  it("answersView ignores non-answer keys", () => {
+    const raw = {
+      model: "jev-latest",
+      usage: { input_tokens: 3 },
+      jailbreak: { noul: 0.2 },
+    };
+    expect(Object.keys(answersView(raw))).toEqual(["jailbreak"]);
+  });
+
+  it("does not treat booleans or blank strings as scores", () => {
+    expect(extractScores({ flag: { noul: true } })).toEqual({});
+    expect(extractScores({ harm: { score: "" } })).toEqual({});
+    expect(extractScores({ harm: { score: "  " } })).toEqual({});
   });
 });

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import math
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from blackrose.policy import Policy
-from blackrose.types import CheckResult, Verdict
+from blackrose.types import CheckResult, Trigger, Verdict
 
 _PRECEDENCE: tuple[Verdict, ...] = ("block", "review", "allow")
 
@@ -19,22 +20,41 @@ def _attr(obj: Any, name: str, default: Any = None) -> Any:
     return getattr(obj, name, default)
 
 
+def _has_field(obj: Any, name: str) -> bool:
+    if obj is None:
+        return False
+    if isinstance(obj, Mapping):
+        return name in obj
+    return hasattr(obj, name)
+
+
 def _as_float(value: Any) -> float | None:
-    if value is None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, str) and value.strip() == "":
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    if not math.isfinite(number):
+        return None
+    return number
 
 
-def _answers_view(raw: Any) -> Mapping[str, Any]:
+def _is_answer_like(value: Any) -> bool:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return False
+    return _has_field(value, "noul") or _has_field(value, "score") or _has_field(value, "choice")
+
+
+def answers_view(raw: Any) -> Mapping[str, Any]:
     """Normalize SDK response / mock into a name → answer mapping."""
     if raw is None:
         return {}
-    answers = _attr(raw, "answers")
-    if isinstance(answers, Mapping):
-        return answers
+    if _has_field(raw, "answers"):
+        answers = _attr(raw, "answers")
+        return answers if isinstance(answers, Mapping) else {}
 
     combined: dict[str, Any] = {}
     for bucket in ("nouls", "scores", "choices"):
@@ -45,15 +65,15 @@ def _answers_view(raw: Any) -> Mapping[str, Any]:
         return combined
 
     if isinstance(raw, Mapping):
-        # Flat mock: {"jailbreak": {"noul": 0.9}, "harm": {"score": 2.1, "confidence": 0.8}}
-        return raw
+        filtered = {name: value for name, value in raw.items() if _is_answer_like(value)}
+        return filtered
     return {}
 
 
 def extract_scores(raw: Any) -> dict[str, float]:
     """Pull named numeric signals from a TypeSafe response or mock dict."""
     scores: dict[str, float] = {}
-    for name, answer in _answers_view(raw).items():
+    for name, answer in answers_view(raw).items():
         noul = _as_float(_attr(answer, "noul"))
         if noul is not None:
             scores[name] = noul
@@ -62,7 +82,6 @@ def extract_scores(raw: Any) -> dict[str, float]:
         if score is not None:
             scores[name] = score
             continue
-        # Choice: store winning probability when available
         choice = _attr(answer, "choice")
         probs = _attr(answer, "probabilities")
         if choice is not None and isinstance(probs, Mapping):
@@ -72,55 +91,172 @@ def extract_scores(raw: Any) -> dict[str, float]:
     return scores
 
 
-def decide(raw: Any, policy: Policy) -> CheckResult:
+def _qualified(trigger: Trigger) -> str:
+    return trigger.qualified()
+
+
+def _low_confidence_trigger(
+    name: str,
+    confidence: float | None,
+    *,
+    missing: bool,
+    min_confidence: float,
+) -> Trigger:
+    if missing:
+        message = f"{name} confidence missing (< min_confidence {min_confidence})"
+    else:
+        value = 0.0 if confidence is None else confidence
+        message = f"{name} confidence={value:.2f} < min_confidence ({min_confidence})"
+    return Trigger(code="low_confidence", check=name, message=message)
+
+
+def decide(
+    raw: Any,
+    policy: Policy,
+    *,
+    expected_checks: Iterable[str] | None = None,
+) -> CheckResult:
     """Apply policy thresholds to TypeSafe answers.
 
     Precedence: any ``block`` wins over ``review``; otherwise ``allow``.
-    Low Score/Choice confidence always contributes ``review``.
+    Missing expected checks, empty responses, and low/missing Score/Choice
+    confidence contribute ``review`` (never silent ``allow``).
     """
-    answers = _answers_view(raw)
+    answers = answers_view(raw)
     scores = extract_scores(raw)
-    reasons: list[str] = []
+    triggers: list[Trigger] = []
     triggered: set[Verdict] = set()
 
-    for name, answer in answers.items():
-        noul = _as_float(_attr(answer, "noul"))
-        if noul is not None:
-            if noul >= policy.block_threshold and name in policy.block_checks:
-                triggered.add("block")
-                reasons.append(f"{name}={noul:.2f} >= block_threshold ({policy.block_threshold})")
-            elif noul >= policy.review_threshold:
+    expected = list(expected_checks) if expected_checks is not None else None
+    if expected is not None:
+        for name in expected:
+            if name not in answers:
                 triggered.add("review")
-                reasons.append(f"{name}={noul:.2f} >= review_threshold ({policy.review_threshold})")
-            continue
-
-        score = _as_float(_attr(answer, "score"))
-        confidence = _as_float(_attr(answer, "confidence"))
-        if score is not None:
-            if confidence is not None and confidence < policy.min_confidence:
-                triggered.add("review")
-                reasons.append(
-                    f"{name} confidence={confidence:.2f} < min_confidence ({policy.min_confidence})"
+                triggers.append(
+                    Trigger(
+                        code="missing_check",
+                        check=name,
+                        message=f"{name} missing from TypeSafe response",
+                    )
                 )
-            if score >= policy.harm_block_score:
-                triggered.add("block")
-                reasons.append(
-                    f"{name}={score:.2f} >= harm_block_score ({policy.harm_block_score})"
-                )
-            elif score >= policy.harm_review_score:
-                triggered.add("review")
-                reasons.append(
-                    f"{name}={score:.2f} >= harm_review_score ({policy.harm_review_score})"
-                )
-            continue
-
-        # Choice answers: low confidence → review; never silent allow on uncertainty
-        confidence = _as_float(_attr(answer, "confidence"))
-        if confidence is not None and confidence < policy.min_confidence:
+        if not expected and not answers:
             triggered.add("review")
-            reasons.append(
-                f"{name} confidence={confidence:.2f} < min_confidence ({policy.min_confidence})"
+            triggers.append(
+                Trigger(
+                    code="empty_response",
+                    check=None,
+                    message="TypeSafe response contained no answers",
+                )
             )
+    elif not answers:
+        triggered.add("review")
+        triggers.append(
+            Trigger(
+                code="empty_response",
+                check=None,
+                message="TypeSafe response contained no answers",
+            )
+        )
+
+    for name, answer in answers.items():
+        noul = _as_float(_attr(answer, "noul")) if _has_field(answer, "noul") else None
+        if _has_field(answer, "noul"):
+            if noul is not None:
+                if noul >= policy.block_threshold and name in policy.block_checks:
+                    triggered.add("block")
+                    triggers.append(
+                        Trigger(
+                            code="noul_block",
+                            check=name,
+                            message=(
+                                f"{name}={noul:.2f} >= block_threshold ({policy.block_threshold})"
+                            ),
+                        )
+                    )
+                elif noul >= policy.review_threshold:
+                    triggered.add("review")
+                    triggers.append(
+                        Trigger(
+                            code="noul_review",
+                            check=name,
+                            message=(
+                                f"{name}={noul:.2f} >= review_threshold ({policy.review_threshold})"
+                            ),
+                        )
+                    )
+            if _has_field(answer, "confidence"):
+                confidence = _as_float(_attr(answer, "confidence"))
+                if confidence is not None and confidence < policy.min_confidence:
+                    triggered.add("review")
+                    triggers.append(
+                        _low_confidence_trigger(
+                            name,
+                            confidence,
+                            missing=False,
+                            min_confidence=policy.min_confidence,
+                        )
+                    )
+            continue
+
+        if _has_field(answer, "score"):
+            score = _as_float(_attr(answer, "score"))
+            confidence = _as_float(_attr(answer, "confidence"))
+            missing_confidence = not _has_field(answer, "confidence") or confidence is None
+            low_confidence = confidence is not None and confidence < policy.min_confidence
+            if missing_confidence or low_confidence:
+                triggered.add("review")
+                triggers.append(
+                    _low_confidence_trigger(
+                        name,
+                        confidence,
+                        missing=missing_confidence,
+                        min_confidence=policy.min_confidence,
+                    )
+                )
+            cutoffs = policy.score_cutoffs(name)
+            if score is not None and cutoffs is not None:
+                if score >= cutoffs.block:
+                    triggered.add("block")
+                    triggers.append(
+                        Trigger(
+                            code="score_block",
+                            check=name,
+                            message=f"{name}={score:.2f} >= score_block ({cutoffs.block})",
+                        )
+                    )
+                elif score >= cutoffs.review:
+                    triggered.add("review")
+                    triggers.append(
+                        Trigger(
+                            code="score_review",
+                            check=name,
+                            message=f"{name}={score:.2f} >= score_review ({cutoffs.review})",
+                        )
+                    )
+            continue
+
+        # Choice answers: low or missing confidence → review; no default block path.
+        if _has_field(answer, "choice") or _has_field(answer, "confidence"):
+            confidence = _as_float(_attr(answer, "confidence"))
+            missing_confidence = not _has_field(answer, "confidence") or confidence is None
+            low_confidence = confidence is not None and confidence < policy.min_confidence
+            if missing_confidence or low_confidence:
+                triggered.add("review")
+                triggers.append(
+                    _low_confidence_trigger(
+                        name,
+                        confidence,
+                        missing=missing_confidence,
+                        min_confidence=policy.min_confidence,
+                    )
+                )
 
     verdict: Verdict = next((v for v in _PRECEDENCE if v in triggered), "allow")
-    return CheckResult(verdict=verdict, reasons=reasons, scores=scores, raw=raw)
+    return CheckResult(
+        verdict=verdict,
+        reasons=[t.message for t in triggers],
+        scores=scores,
+        raw=raw,
+        triggers=tuple(triggers),
+        codes=tuple(_qualified(t) for t in triggers),
+    )

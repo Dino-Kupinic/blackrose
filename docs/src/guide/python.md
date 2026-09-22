@@ -7,8 +7,8 @@ Requires `typesafe-sdk>=0.7.0` (Python SDK; the JS package tracks `@typesafe-ai/
 ## Install
 
 ```bash
-cd packages/python && uv sync --all-groups
-# once published: uv add blackrose / pip install blackrose
+uv add blackrose
+# from this repo: cd packages/python && uv sync --all-groups
 ```
 
 ## Guard / AsyncGuard
@@ -29,18 +29,23 @@ Constructor options:
 | Argument | Purpose |
 | --- | --- |
 | `api_key` | Passed to TypeSafe; else `TYPESAFE_API_KEY` |
-| `model` | Override; else `TYPESAFE_MODEL` → `TYPESAFE_DEFAULT_MODEL` → `jev-latest` |
+| `model` | Override; else `TYPESAFE_MODEL` → `TYPESAFE_DEFAULT_MODEL` → `jev-latest` (blank strings are ignored) |
 | `policy` | Thresholds / questions |
 | `client` | Inject a sync/async TypeSafe client or test double |
+| `client_config` | Extra kwargs for the default TypeSafe client (timeouts, base URL, …) |
 
-`close()` / `aclose()` dispose the owned SDK client. Context managers call them automatically.
+`close()` / `aclose()` dispose the owned SDK client and are safe to call more than once. Checks after close raise `GuardClosedError`. Context managers call them automatically.
+
+TypeSafe call failures raise `TypeSafeRequestError` — fail closed; do not treat that as `allow`.
 
 ## Exports
 
 - `Guard`, `AsyncGuard`
-- `Policy`, `default_input_questions`, `default_output_questions`
-- `CheckResult`, `Verdict`
-- `decide`, `extract_scores` (via `blackrose.decide`)
+- `Policy`, `PolicyConfigError`, `ScoreThresholds`
+- `default_input_questions`, `default_output_questions`, `harm_severity`, `HARM_SEVERITY`
+- `CheckResult`, `Trigger`, `Verdict`
+- `decide`, `extract_scores`, `answers_view`
+- `BlackroseError`, `GuardClosedError`, `TypeSafeRequestError`
 
 ## Tests
 
@@ -48,7 +53,7 @@ Constructor options:
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run mypy src
-uv run pytest
+uv run pytest -m "not live"
 # optional live calls:
 TYPESAFE_API_KEY=... uv run pytest -m live
 ```

@@ -5,31 +5,50 @@
  */
 
 import type { Policy } from "./policy.js";
-import type { CheckResult, Verdict } from "./types.js";
+import type { CheckResult, Trigger, Verdict } from "./types.js";
+import { qualifiedTrigger } from "./types.js";
 
 const PRECEDENCE: readonly Verdict[] = ["block", "review", "allow"];
 
+function hasField(obj: unknown, name: string): boolean {
+  if (obj == null || typeof obj !== "object") return false;
+  return name in (obj as Record<string, unknown>);
+}
+
 function attr(obj: unknown, name: string, fallback: unknown = undefined): unknown {
-  if (obj == null) return fallback;
-  if (typeof obj === "object" && name in (obj as Record<string, unknown>)) {
-    return (obj as Record<string, unknown>)[name];
-  }
-  return fallback;
+  if (!hasField(obj, name)) return fallback;
+  return (obj as Record<string, unknown>)[name];
 }
 
 function asFloat(value: unknown): number | null {
-  if (value == null) return null;
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
+  if (value == null || typeof value === "boolean") return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  return null;
+}
+
+function isAnswerLike(value: unknown): boolean {
+  if (value == null || typeof value !== "object") return false;
+  return hasField(value, "noul") || hasField(value, "score") || hasField(value, "choice");
 }
 
 /** Normalize SDK response / mock into a name → answer mapping. */
 export function answersView(raw: unknown): Record<string, unknown> {
   if (raw == null) return {};
 
-  const answers = attr(raw, "answers");
-  if (answers != null && typeof answers === "object" && !Array.isArray(answers)) {
-    return answers as Record<string, unknown>;
+  if (hasField(raw, "answers")) {
+    const answers = attr(raw, "answers");
+    if (answers != null && typeof answers === "object" && !Array.isArray(answers)) {
+      return answers as Record<string, unknown>;
+    }
+    return {};
   }
 
   const combined: Record<string, unknown> = {};
@@ -42,8 +61,11 @@ export function answersView(raw: unknown): Record<string, unknown> {
   if (Object.keys(combined).length > 0) return combined;
 
   if (typeof raw === "object" && !Array.isArray(raw)) {
-    // Flat mock: { jailbreak: { noul: 0.9 }, harm: { score: 2.1, confidence: 0.8 } }
-    return raw as Record<string, unknown>;
+    const filtered: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (isAnswerLike(value)) filtered[name] = value;
+    }
+    return filtered;
   }
   return {};
 }
@@ -72,63 +94,156 @@ export function extractScores(raw: unknown): Record<string, number> {
   return scores;
 }
 
+export interface DecideOptions {
+  /** Names that must appear in the response; missing names contribute `review`. */
+  expectedChecks?: Iterable<string>;
+}
+
+function pushTrigger(
+  triggered: Set<Verdict>,
+  triggers: Trigger[],
+  verdict: Verdict,
+  trigger: Trigger,
+): void {
+  triggered.add(verdict);
+  triggers.push(trigger);
+}
+
+function lowConfidenceTrigger(
+  name: string,
+  confidence: number | null,
+  missing: boolean,
+  minConfidence: number,
+): Trigger {
+  const message = missing
+    ? `${name} confidence missing (< min_confidence ${minConfidence})`
+    : `${name} confidence=${(confidence as number).toFixed(2)} < min_confidence (${minConfidence})`;
+  return { code: "low_confidence", check: name, message };
+}
+
 /**
  * Apply policy thresholds to TypeSafe answers.
  *
  * Precedence: any `block` wins over `review`; otherwise `allow`.
- * Low Score/Choice confidence always contributes `review`.
+ * Missing expected checks, empty responses, and low/missing Score/Choice
+ * confidence contribute `review` (never silent `allow`).
  */
-export function decide(raw: unknown, policy: Policy): CheckResult {
+export function decide(raw: unknown, policy: Policy, options: DecideOptions = {}): CheckResult {
   const answers = answersView(raw);
   const scores = extractScores(raw);
-  const reasons: string[] = [];
+  const triggers: Trigger[] = [];
   const triggered = new Set<Verdict>();
 
+  const expected = options.expectedChecks != null ? Array.from(options.expectedChecks) : undefined;
+  if (expected != null) {
+    for (const name of expected) {
+      if (!(name in answers)) {
+        pushTrigger(triggered, triggers, "review", {
+          code: "missing_check",
+          check: name,
+          message: `${name} missing from TypeSafe response`,
+        });
+      }
+    }
+    if (expected.length === 0 && Object.keys(answers).length === 0) {
+      pushTrigger(triggered, triggers, "review", {
+        code: "empty_response",
+        check: null,
+        message: "TypeSafe response contained no answers",
+      });
+    }
+  } else if (Object.keys(answers).length === 0) {
+    pushTrigger(triggered, triggers, "review", {
+      code: "empty_response",
+      check: null,
+      message: "TypeSafe response contained no answers",
+    });
+  }
+
   for (const [name, answer] of Object.entries(answers)) {
-    const noul = asFloat(attr(answer, "noul"));
-    if (noul != null) {
-      if (noul >= policy.blockThreshold && policy.blockChecks.has(name)) {
-        triggered.add("block");
-        reasons.push(`${name}=${noul.toFixed(2)} >= block_threshold (${policy.blockThreshold})`);
-      } else if (noul >= policy.reviewThreshold) {
-        triggered.add("review");
-        reasons.push(`${name}=${noul.toFixed(2)} >= review_threshold (${policy.reviewThreshold})`);
+    if (hasField(answer, "noul")) {
+      const noul = asFloat(attr(answer, "noul"));
+      if (noul != null) {
+        if (noul >= policy.blockThreshold && policy.blockChecks.has(name)) {
+          pushTrigger(triggered, triggers, "block", {
+            code: "noul_block",
+            check: name,
+            message: `${name}=${noul.toFixed(2)} >= block_threshold (${policy.blockThreshold})`,
+          });
+        } else if (noul >= policy.reviewThreshold) {
+          pushTrigger(triggered, triggers, "review", {
+            code: "noul_review",
+            check: name,
+            message: `${name}=${noul.toFixed(2)} >= review_threshold (${policy.reviewThreshold})`,
+          });
+        }
+      }
+      if (hasField(answer, "confidence")) {
+        const confidence = asFloat(attr(answer, "confidence"));
+        if (confidence != null && confidence < policy.minConfidence) {
+          pushTrigger(
+            triggered,
+            triggers,
+            "review",
+            lowConfidenceTrigger(name, confidence, false, policy.minConfidence),
+          );
+        }
       }
       continue;
     }
 
-    const score = asFloat(attr(answer, "score"));
-    let confidence = asFloat(attr(answer, "confidence"));
-    if (score != null) {
-      if (confidence != null && confidence < policy.minConfidence) {
-        triggered.add("review");
-        reasons.push(
-          `${name} confidence=${confidence.toFixed(2)} < min_confidence (${policy.minConfidence})`,
+    if (hasField(answer, "score")) {
+      const score = asFloat(attr(answer, "score"));
+      const confidence = asFloat(attr(answer, "confidence"));
+      const missingConfidence = !hasField(answer, "confidence") || confidence == null;
+      if (missingConfidence || (confidence != null && confidence < policy.minConfidence)) {
+        pushTrigger(
+          triggered,
+          triggers,
+          "review",
+          lowConfidenceTrigger(name, confidence, missingConfidence, policy.minConfidence),
         );
       }
-      if (score >= policy.harmBlockScore) {
-        triggered.add("block");
-        reasons.push(`${name}=${score.toFixed(2)} >= harm_block_score (${policy.harmBlockScore})`);
-      } else if (score >= policy.harmReviewScore) {
-        triggered.add("review");
-        reasons.push(
-          `${name}=${score.toFixed(2)} >= harm_review_score (${policy.harmReviewScore})`,
-        );
+      const cutoffs = policy.scoreCutoffs(name);
+      if (score != null && cutoffs != null) {
+        if (score >= cutoffs.block) {
+          pushTrigger(triggered, triggers, "block", {
+            code: "score_block",
+            check: name,
+            message: `${name}=${score.toFixed(2)} >= score_block (${cutoffs.block})`,
+          });
+        } else if (score >= cutoffs.review) {
+          pushTrigger(triggered, triggers, "review", {
+            code: "score_review",
+            check: name,
+            message: `${name}=${score.toFixed(2)} >= score_review (${cutoffs.review})`,
+          });
+        }
       }
       continue;
     }
 
-    // Choice answers: low confidence → review; never silent allow on uncertainty
-    confidence = asFloat(attr(answer, "confidence"));
-    if (confidence != null && confidence < policy.minConfidence) {
-      triggered.add("review");
-      reasons.push(
-        `${name} confidence=${confidence.toFixed(2)} < min_confidence (${policy.minConfidence})`,
-      );
+    if (hasField(answer, "choice") || hasField(answer, "confidence")) {
+      const confidence = asFloat(attr(answer, "confidence"));
+      const missingConfidence = !hasField(answer, "confidence") || confidence == null;
+      if (missingConfidence || (confidence != null && confidence < policy.minConfidence)) {
+        pushTrigger(
+          triggered,
+          triggers,
+          "review",
+          lowConfidenceTrigger(name, confidence, missingConfidence, policy.minConfidence),
+        );
+      }
     }
   }
 
   const verdict: Verdict = PRECEDENCE.find((v) => triggered.has(v)) ?? "allow";
-
-  return { verdict, reasons, scores, raw };
+  return {
+    verdict,
+    reasons: triggers.map((t) => t.message),
+    scores,
+    raw,
+    triggers,
+    codes: triggers.map(qualifiedTrigger),
+  };
 }

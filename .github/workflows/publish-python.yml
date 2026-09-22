@@ -34,6 +34,17 @@ jobs:
       - name: Sync
         run: uv sync --all-groups
 
+      - name: Lint
+        run: |
+          uv run ruff check src tests
+          uv run ruff format --check src tests
+
+      - name: Typecheck
+        run: uv run mypy src
+
+      - name: Test
+        run: uv run pytest -m "not live"
+
       - name: Build
         run: uv build
 

@@ -15,6 +15,13 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].+)?$ ]]; then
   exit 1
 fi
 
+CHANGELOG="$ROOT/CHANGELOG.md"
+if ! grep -qE "^## \[${VERSION}\]" "$CHANGELOG"; then
+  echo "error: CHANGELOG.md has no '## [$VERSION]' heading" >&2
+  echo "Add the release notes before tagging v$VERSION." >&2
+  exit 1
+fi
+
 PYPROJECT="$ROOT/packages/python/pyproject.toml"
 JS_PKG="$ROOT/packages/js/package.json"
 PY_INIT="$ROOT/packages/python/src/blackrose/__init__.py"
@@ -30,4 +37,5 @@ echo "  - packages/python/pyproject.toml"
 echo "  - packages/python/src/blackrose/__init__.py"
 echo "  - packages/js/package.json"
 echo "  - packages/js/src/index.ts"
-echo "Update CHANGELOG.md, then: git tag v$VERSION && git push origin v$VERSION"
+echo "  - CHANGELOG.md already contains ## [$VERSION]"
+echo "Then: git tag v$VERSION && git push origin v$VERSION"
