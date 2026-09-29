@@ -99,6 +99,12 @@ def _require_unit(name: str, value: object) -> float:
     return number
 
 
+def _question_type(question: object) -> object:
+    if isinstance(question, Mapping):
+        return question.get("type")
+    return getattr(question, "type", None)
+
+
 def _coerce_score_thresholds(
     raw: Mapping[str, ScoreThresholds | Mapping[str, object]] | None,
     *,
@@ -134,6 +140,10 @@ class Policy:
 
     Low or missing confidence on Score/Choice answers defaults to ``review``,
     never silent allow. Missing expected checks also default to ``review``.
+
+    Construction fails with ``PolicyConfigError`` when a check could never
+    affect the verdict: a ``block_checks`` name that is not a Noul question, or
+    a Score question without a ``score_thresholds`` entry.
     """
 
     review_threshold: float = 0.35
@@ -190,6 +200,30 @@ class Policy:
             if spec.review > spec.block:
                 raise PolicyConfigError(f"score_thresholds[{name!r}].review must be <= block")
         object.__setattr__(self, "score_thresholds", merged)
+
+        self._validate_checks()
+
+    def _validate_checks(self) -> None:
+        """Reject configurations where a check could silently never affect the verdict."""
+        noul_checks: set[str] = set()
+        for side in ("input", "output"):
+            for name, question in self.questions_for(side).items():
+                kind = _question_type(question)
+                if kind == "noul":
+                    noul_checks.add(name)
+                elif kind == "score" and name not in self.score_thresholds:
+                    raise PolicyConfigError(
+                        f"Score check {name!r} has no score_thresholds entry, so its score "
+                        "could never trigger review or block; add one (cutoffs above the "
+                        "rubric maximum keep it informational)"
+                    )
+        unknown = sorted(self.block_checks - noul_checks)
+        if unknown:
+            raise PolicyConfigError(
+                f"block_checks {unknown} do not name a Noul check in the input or output "
+                "questions; list the Noul checks that may block, or pass an empty set to "
+                "never block on Noul checks"
+            )
 
     def score_cutoffs(self, name: str) -> ScoreThresholds | None:
         """Return review/block cutoffs for a named Score check, if configured."""

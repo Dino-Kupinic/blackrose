@@ -119,8 +119,8 @@ def decide(
     """Apply policy thresholds to TypeSafe answers.
 
     Precedence: any ``block`` wins over ``review``; otherwise ``allow``.
-    Missing expected checks, empty responses, and low/missing Score/Choice
-    confidence contribute ``review`` (never silent ``allow``).
+    Missing or unusable expected checks, empty responses, and low/missing
+    Score/Choice confidence contribute ``review`` (never silent ``allow``).
     """
     answers = answers_view(raw)
     scores = extract_scores(raw)
@@ -158,10 +158,15 @@ def decide(
             )
         )
 
+    # Without an explicit expectation, every returned answer must carry a usable value.
+    required = set(expected) if expected is not None else None
+
     for name, answer in answers.items():
-        noul = _as_float(_attr(answer, "noul")) if _has_field(answer, "noul") else None
+        usable = False
         if _has_field(answer, "noul"):
+            noul = _as_float(_attr(answer, "noul"))
             if noul is not None:
+                usable = True
                 if noul >= policy.block_threshold and name in policy.block_checks:
                     triggered.add("block")
                     triggers.append(
@@ -196,10 +201,10 @@ def decide(
                             min_confidence=policy.min_confidence,
                         )
                     )
-            continue
 
-        if _has_field(answer, "score"):
+        elif _has_field(answer, "score"):
             score = _as_float(_attr(answer, "score"))
+            usable = score is not None
             confidence = _as_float(_attr(answer, "confidence"))
             missing_confidence = not _has_field(answer, "confidence") or confidence is None
             low_confidence = confidence is not None and confidence < policy.min_confidence
@@ -233,10 +238,10 @@ def decide(
                             message=f"{name}={score:.2f} >= score_review ({cutoffs.review})",
                         )
                     )
-            continue
 
-        # Choice answers: low or missing confidence → review; no default block path.
-        if _has_field(answer, "choice") or _has_field(answer, "confidence"):
+        elif _has_field(answer, "choice") or _has_field(answer, "confidence"):
+            # Choice answers: low or missing confidence → review; no default block path.
+            usable = _attr(answer, "choice") is not None
             confidence = _as_float(_attr(answer, "confidence"))
             missing_confidence = not _has_field(answer, "confidence") or confidence is None
             low_confidence = confidence is not None and confidence < policy.min_confidence
@@ -250,6 +255,17 @@ def decide(
                         min_confidence=policy.min_confidence,
                     )
                 )
+
+        # A present answer we cannot read (unknown type, null, non-numeric) is not a pass.
+        if not usable and (required is None or name in required):
+            triggered.add("review")
+            triggers.append(
+                Trigger(
+                    code="unusable_answer",
+                    check=name,
+                    message=f"{name} answer has no usable noul, score, or choice value",
+                )
+            )
 
     verdict: Verdict = next((v for v in _PRECEDENCE if v in triggered), "allow")
     return CheckResult(

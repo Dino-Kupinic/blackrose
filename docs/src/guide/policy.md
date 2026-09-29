@@ -2,6 +2,13 @@
 
 `Policy` owns thresholds and the TypeSafe question batteries used for input vs output checks. Invalid combinations (reversed cutoffs, non-finite numbers, Noul/confidence values outside 0–1) raise `PolicyConfigError` at construction.
 
+Construction also fails when a check could never affect the verdict:
+
+- a `block_checks` / `blockChecks` name that is not a Noul question on either side (a typo, a Score check, or a check you renamed), and
+- a Score question without a `score_thresholds` / `scoreThresholds` entry.
+
+To keep a Score check informational, give it cutoffs above its rubric maximum. To never block on Noul checks, pass an empty set.
+
 ## Defaults
 
 | Knob | Default | Effect |
@@ -14,7 +21,7 @@
 | `block_checks` / `blockChecks` | `{jailbreak}` | Which Noul checks may escalate to `block` |
 | `score_thresholds` / `scoreThresholds` | `{harm: (1.0, 2.0)}` | Per-check Score review/block cutoffs |
 
-Low or missing Score/Choice confidence defaults to **`review`**, never silent `allow`. Custom Score checks only block if they appear in `score_thresholds`; they do not inherit the harm 0–3 scale.
+Low or missing Score/Choice confidence defaults to **`review`**, never silent `allow`. Custom Score checks need their own `score_thresholds` entry; they do not inherit the harm 0–3 scale.
 
 ## Custom thresholds
 
@@ -54,7 +61,9 @@ const guard = new Guard({ policy });
 
 ## Custom questions
 
-Pass your own TypeSafe `Question` map for input and/or output. Names become keys in `scores` and `reasons`. `Guard` treats those names as expected checks: if TypeSafe omits one, the verdict is at least `review`.
+Pass your own TypeSafe `Question` map for input and/or output. Names become keys in `scores` and `reasons`. `Guard` treats those names as expected checks: if TypeSafe omits one, or returns it unreadable, the verdict is at least `review`.
+
+The default `block_checks` is `{jailbreak}`, so when you replace both batteries, say which of your Noul checks may block.
 
 ::: code-group
 
@@ -66,7 +75,11 @@ spam = Noul(
     instructions="Is this spam?",
     criteria=NoulCriteria(true="It is spam.", false="It is not spam."),
 )
-policy = Policy(input_questions={"spam": spam}, output_questions={"spam": spam})
+policy = Policy(
+    input_questions={"spam": spam},
+    output_questions={"spam": spam},
+    block_checks=frozenset({"spam"}),
+)
 guard = Guard(policy=policy)
 ```
 
@@ -81,6 +94,7 @@ const spam = noul("Is this spam?", {
 const policy = new Policy({
   inputQuestions: { spam },
   outputQuestions: { spam },
+  blockChecks: ["spam"],
 });
 const guard = new Guard({ policy });
 ```

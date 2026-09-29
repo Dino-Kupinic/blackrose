@@ -105,7 +105,11 @@ def test_guard_uses_custom_policy_questions() -> None:
     from typesafe_sdk import Noul
 
     custom = {"only": Noul(instructions="Is this spam?")}
-    policy = Policy(input_questions=custom, output_questions=custom)
+    policy = Policy(
+        input_questions=custom,
+        output_questions=custom,
+        block_checks=frozenset({"only"}),
+    )
     client = FakeSyncClient({"only": {"noul": 0.01}})
     guard = Guard(client=client, policy=policy)
     guard.check_input("hi")

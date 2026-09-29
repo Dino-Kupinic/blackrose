@@ -240,12 +240,87 @@
     "codes": ["noul_block:jailbreak"]
   },
   {
-    "name": "empty_string_score_is_not_zero",
+    "name": "empty_string_score_is_unusable_not_zero",
     "raw": {
       "jailbreak": { "noul": 0.02 },
       "harm": { "score": "", "confidence": 0.9 },
       "needs_human": { "noul": 0.05 }
     },
+    "verdict": "review",
+    "codes": ["unusable_answer:harm"]
+  },
+  {
+    "name": "null_noul_is_unusable",
+    "raw": {
+      "answers": {
+        "jailbreak": { "type": "noul", "noul": null },
+        "harm": { "type": "score", "score": 0.1, "confidence": 0.9 },
+        "needs_human": { "type": "noul", "noul": 0.05 }
+      }
+    },
+    "expected_checks": ["jailbreak", "harm", "needs_human"],
+    "verdict": "review",
+    "codes": ["unusable_answer:jailbreak"]
+  },
+  {
+    "name": "non_numeric_noul_is_unusable",
+    "raw": {
+      "answers": {
+        "jailbreak": { "type": "noul", "noul": "high" },
+        "harm": { "type": "score", "score": 0.1, "confidence": 0.9 },
+        "needs_human": { "type": "noul", "noul": 0.05 }
+      }
+    },
+    "expected_checks": ["jailbreak", "harm", "needs_human"],
+    "verdict": "review",
+    "codes": ["unusable_answer:jailbreak"]
+  },
+  {
+    "name": "unknown_answer_type_is_unusable",
+    "raw": {
+      "answers": {
+        "jailbreak": { "type": "noul_v2", "p": 0.99 },
+        "harm": { "type": "score", "score": 0.1, "confidence": 0.9 },
+        "needs_human": { "type": "noul", "noul": 0.05 }
+      }
+    },
+    "expected_checks": ["jailbreak", "harm", "needs_human"],
+    "verdict": "review",
+    "codes": ["unusable_answer:jailbreak"]
+  },
+  {
+    "name": "non_numeric_score_is_unusable",
+    "raw": {
+      "answers": {
+        "jailbreak": { "type": "noul", "noul": 0.02 },
+        "harm": { "type": "score", "score": "n/a", "confidence": 0.9 },
+        "needs_human": { "type": "noul", "noul": 0.05 }
+      }
+    },
+    "expected_checks": ["jailbreak", "harm", "needs_human"],
+    "verdict": "review",
+    "codes": ["unusable_answer:harm"]
+  },
+  {
+    "name": "choice_without_label_is_unusable",
+    "raw": {
+      "answers": {
+        "topic": { "type": "choice", "choice": null, "confidence": 0.9, "probabilities": {} }
+      }
+    },
+    "expected_checks": ["topic"],
+    "verdict": "review",
+    "codes": ["unusable_answer:topic"]
+  },
+  {
+    "name": "unusable_answer_outside_expected_checks_is_ignored",
+    "raw": {
+      "answers": {
+        "jailbreak": { "type": "noul", "noul": 0.02 },
+        "trace": { "type": "debug" }
+      }
+    },
+    "expected_checks": ["jailbreak"],
     "verdict": "allow",
     "codes": []
   }

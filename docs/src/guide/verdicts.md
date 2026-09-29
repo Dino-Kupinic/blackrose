@@ -25,6 +25,7 @@ There is no soft allow:
 - Noul confidence, when present and below `min_confidence`, contributes `review`.
 - An empty TypeSafe response contributes `review` (`empty_response`).
 - An expected check name that is absent from the response contributes `review` (`missing_check`).
+- An expected check that is present but unreadable — an unknown answer type, `null`, or a non-numeric value — contributes `review` (`unusable_answer`).
 
 `Guard` always passes the question names it asked as expected checks.
 

@@ -81,6 +81,7 @@ describe("Guard", () => {
     const policy = new Policy({
       inputQuestions: custom,
       outputQuestions: custom,
+      blockChecks: ["only"],
     });
     const client = new FakeClient({ only: { noul: 0.01 } });
     const guard = new Guard({ client, policy });
