@@ -134,6 +134,19 @@ describe("Guard", () => {
     }
   });
 
+  it("constructs where no `process` global exists (browsers, edge runtimes)", () => {
+    const saved = globalThis.process;
+    let guard: Guard | undefined;
+    try {
+      // @ts-expect-error simulate a runtime without Node's `process`
+      globalThis.process = undefined;
+      guard = new Guard({ client: new FakeClient(SAFE) });
+    } finally {
+      globalThis.process = saved;
+    }
+    expect(guard).toBeInstanceOf(Guard);
+  });
+
   it("wraps SDK failures as TypeSafeRequestError", async () => {
     const client = new FakeClient(new Error("timeout"));
     const guard = new Guard({ client });

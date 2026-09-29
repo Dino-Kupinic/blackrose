@@ -13,8 +13,7 @@
     "jev"
   ],
   "engines": {
-    "node": ">=20",
-    "bun": ">=1.1.0"
+    "node": ">=20"
   },
   "packageManager": "bun@1.3.13",
   "main": "./dist/index.cjs",
@@ -37,6 +36,7 @@
     "dist",
     "README.md"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
@@ -60,7 +60,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dinokupinic/blackrose.git",
+    "url": "git+https://github.com/Dino-Kupinic/blackrose.git",
     "directory": "packages/js"
   },
   "homepage": "https://blackrose.dev",

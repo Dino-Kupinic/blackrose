@@ -4,34 +4,41 @@
  * Mirrors packages/python/src/blackrose/guard.py (async surface).
  */
 
-import {
-  type Question,
-  type SystemOneResult,
-  TypeSafeClient,
-  type TypeSafeClientConfig,
-} from "@typesafe-ai/sdk";
+import { type Question, TypeSafeClient, type TypeSafeClientConfig } from "@typesafe-ai/sdk";
 
 import { decide } from "./decide.js";
 import { BlackroseError, GuardClosedError, TypeSafeRequestError } from "./errors.js";
 import { Policy, type PolicySide } from "./policy.js";
 import type { CheckResult, GuardState } from "./types.js";
 
+function readEnv(name: string): string | undefined {
+  // `process` is absent in browsers and some edge runtimes (e.g. Cloudflare Workers
+  // without nodejs_compat); the TypeSafe SDK guards the same way.
+  if (typeof process === "undefined" || !process.env) return undefined;
+  return process.env[name]?.trim() || undefined;
+}
+
 function resolveModel(model?: string | null): string {
   if (model != null && model.trim() !== "") return model.trim();
   for (const env of ["TYPESAFE_MODEL", "TYPESAFE_DEFAULT_MODEL"] as const) {
-    const value = process.env[env]?.trim();
+    const value = readEnv(env);
     if (value) return value;
   }
   return "jev-latest";
 }
 
-/** Minimal System One client surface (real SDK or test double). */
+/**
+ * Minimal System One client surface (real SDK or test double).
+ *
+ * `systemOne` resolves to a TypeSafe `SystemOneResult` or a mock shaped like one;
+ * `decide` validates the shape at runtime, so the result is typed as `unknown`.
+ */
 export interface SystemOneClient {
   systemOne(request: {
     state: GuardState;
     questions: Record<string, Question>;
     model?: string;
-  }): Promise<SystemOneResult<Record<string, Question>> | unknown>;
+  }): Promise<unknown>;
   /** Optional dispose hook (real TypeSafe clients may expose `close`). */
   close?: () => void | Promise<void>;
 }

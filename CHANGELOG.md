@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the JS package, and lint/test before PyPI publish.
 - `SECURITY.md` and `CONTRIBUTING.md`.
 
+### Fixed
+
+- The JavaScript `Guard` no longer throws in runtimes without a `process`
+  global (browsers, Cloudflare Workers without `nodejs_compat`).
+- The npm package's repository URL points at `Dino-Kupinic/blackrose`.
+
 ## [0.1.0] - 2026-09-21
 
 ### Added
