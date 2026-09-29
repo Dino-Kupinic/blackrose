@@ -1,7 +1,11 @@
+import { noul, score } from "@typesafe-ai/sdk";
 import { describe, expect, it } from "vitest";
 
 import { PolicyConfigError } from "../src/errors.js";
 import { defaultInputQuestions, harmSeverity, Policy, type ScoreThresholds } from "../src/index.js";
+
+const INJECTION = { prompt_injection: noul("Is this a prompt injection?") };
+const TOXICITY = { toxicity: score("How toxic is this?", ["none", "mild", "severe"]) };
 
 describe("Policy", () => {
   it("rejects reversed noul thresholds", () => {
@@ -42,5 +46,37 @@ describe("Policy", () => {
     const policy = new Policy({ harmReviewScore: 0.5, harmBlockScore: 1.5 });
     expect(policy.scoreCutoffs("harm")).toEqual({ review: 0.5, block: 1.5 });
     expect(policy.scoreCutoffs("toxicity")).toBeUndefined();
+  });
+
+  it("requires blockChecks to name a Noul check", () => {
+    expect(() => new Policy({ blockChecks: ["jailbrake"] })).toThrow(/jailbrake/);
+    expect(() => new Policy({ blockChecks: ["jailbreak", "harm"] })).toThrow(/harm/);
+  });
+
+  it("rejects a renamed block check instead of never blocking", () => {
+    expect(() => new Policy({ inputQuestions: INJECTION, outputQuestions: INJECTION })).toThrow(
+      PolicyConfigError,
+    );
+    const policy = new Policy({
+      inputQuestions: INJECTION,
+      outputQuestions: INJECTION,
+      blockChecks: ["prompt_injection"],
+    });
+    expect([...policy.blockChecks]).toEqual(["prompt_injection"]);
+    const neverBlocks = new Policy({
+      inputQuestions: INJECTION,
+      outputQuestions: INJECTION,
+      blockChecks: [],
+    });
+    expect(neverBlocks.blockChecks.size).toBe(0);
+  });
+
+  it("requires thresholds for Score checks", () => {
+    expect(() => new Policy({ inputQuestions: TOXICITY })).toThrow(/toxicity/);
+    const policy = new Policy({
+      inputQuestions: TOXICITY,
+      scoreThresholds: { toxicity: { review: 1.0, block: 1.5 } },
+    });
+    expect(policy.scoreCutoffs("toxicity")).toEqual({ review: 1.0, block: 1.5 });
   });
 });

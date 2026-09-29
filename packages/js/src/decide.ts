@@ -95,7 +95,7 @@ export function extractScores(raw: unknown): Record<string, number> {
 }
 
 export interface DecideOptions {
-  /** Names that must appear in the response; missing names contribute `review`. */
+  /** Names that must appear in the response; missing or unusable names contribute `review`. */
   expectedChecks?: Iterable<string>;
 }
 
@@ -125,8 +125,8 @@ function lowConfidenceTrigger(
  * Apply policy thresholds to TypeSafe answers.
  *
  * Precedence: any `block` wins over `review`; otherwise `allow`.
- * Missing expected checks, empty responses, and low/missing Score/Choice
- * confidence contribute `review` (never silent `allow`).
+ * Missing or unusable expected checks, empty responses, and low/missing
+ * Score/Choice confidence contribute `review` (never silent `allow`).
  */
 export function decide(raw: unknown, policy: Policy, options: DecideOptions = {}): CheckResult {
   const answers = answersView(raw);
@@ -160,10 +160,15 @@ export function decide(raw: unknown, policy: Policy, options: DecideOptions = {}
     });
   }
 
+  // Without an explicit expectation, every returned answer must carry a usable value.
+  const required = expected != null ? new Set(expected) : null;
+
   for (const [name, answer] of Object.entries(answers)) {
+    let usable = false;
     if (hasField(answer, "noul")) {
       const noul = asFloat(attr(answer, "noul"));
       if (noul != null) {
+        usable = true;
         if (noul >= policy.blockThreshold && policy.blockChecks.has(name)) {
           pushTrigger(triggered, triggers, "block", {
             code: "noul_block",
@@ -189,11 +194,9 @@ export function decide(raw: unknown, policy: Policy, options: DecideOptions = {}
           );
         }
       }
-      continue;
-    }
-
-    if (hasField(answer, "score")) {
+    } else if (hasField(answer, "score")) {
       const score = asFloat(attr(answer, "score"));
+      usable = score != null;
       const confidence = asFloat(attr(answer, "confidence"));
       const missingConfidence = !hasField(answer, "confidence") || confidence == null;
       if (missingConfidence || (confidence != null && confidence < policy.minConfidence)) {
@@ -220,10 +223,9 @@ export function decide(raw: unknown, policy: Policy, options: DecideOptions = {}
           });
         }
       }
-      continue;
-    }
-
-    if (hasField(answer, "choice") || hasField(answer, "confidence")) {
+    } else if (hasField(answer, "choice") || hasField(answer, "confidence")) {
+      // Choice answers: low or missing confidence → review; no default block path.
+      usable = attr(answer, "choice") != null;
       const confidence = asFloat(attr(answer, "confidence"));
       const missingConfidence = !hasField(answer, "confidence") || confidence == null;
       if (missingConfidence || (confidence != null && confidence < policy.minConfidence)) {
@@ -234,6 +236,15 @@ export function decide(raw: unknown, policy: Policy, options: DecideOptions = {}
           lowConfidenceTrigger(name, confidence, missingConfidence, policy.minConfidence),
         );
       }
+    }
+
+    // A present answer we cannot read (unknown type, null, non-numeric) is not a pass.
+    if (!usable && (required == null || required.has(name))) {
+      pushTrigger(triggered, triggers, "review", {
+        code: "unusable_answer",
+        check: name,
+        message: `${name} answer has no usable noul, score, or choice value`,
+      });
     }
   }
 

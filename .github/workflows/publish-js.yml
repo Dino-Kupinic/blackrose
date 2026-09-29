@@ -24,7 +24,13 @@ jobs:
         working-directory: packages/js
     environment: npm
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
+
+      - name: Refuse to publish from a branch
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false && !startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "::error::Publishing requires running this workflow on a v* tag (got $GITHUB_REF)."
+          exit 1
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -41,7 +47,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Check version matches tag
-        if: github.event_name == 'push'
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           PKG=$(node -p "require('./package.json').version")

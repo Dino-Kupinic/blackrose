@@ -111,6 +111,10 @@ function requireUnit(name: string, value: unknown): number {
  *
  * Low or missing confidence on Score/Choice answers defaults to `review`,
  * never silent allow. Missing expected checks also default to `review`.
+ *
+ * Construction throws `PolicyConfigError` when a check could never affect the
+ * verdict: a `blockChecks` name that is not a Noul question, or a Score
+ * question without a `scoreThresholds` entry.
  */
 export class Policy {
   readonly reviewThreshold: number;
@@ -163,6 +167,34 @@ export class Policy {
 
     this.inputQuestions = options.inputQuestions ?? null;
     this.outputQuestions = options.outputQuestions ?? null;
+
+    this.validateChecks();
+  }
+
+  /** Reject configurations where a check could silently never affect the verdict. */
+  private validateChecks(): void {
+    const noulChecks = new Set<string>();
+    for (const side of ["input", "output"] as const) {
+      for (const [name, question] of Object.entries(this.questionsFor(side))) {
+        if (question.type === "noul") {
+          noulChecks.add(name);
+        } else if (question.type === "score" && this.scoreThresholds[name] == null) {
+          throw new PolicyConfigError(
+            `Score check ${JSON.stringify(name)} has no scoreThresholds entry, so its score ` +
+              "could never trigger review or block; add one (cutoffs above the rubric maximum " +
+              "keep it informational)",
+          );
+        }
+      }
+    }
+    const unknown = [...this.blockChecks].filter((name) => !noulChecks.has(name)).sort();
+    if (unknown.length > 0) {
+      throw new PolicyConfigError(
+        `blockChecks ${JSON.stringify(unknown)} do not name a Noul check in the input or ` +
+          "output questions; list the Noul checks that may block, or pass an empty list to " +
+          "never block on Noul checks",
+      );
+    }
   }
 
   scoreCutoffs(name: string): ScoreThresholds | undefined {

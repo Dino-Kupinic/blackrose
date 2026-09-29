@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import pytest
+from typesafe_sdk import Noul, Score
 
 from blackrose import Policy, PolicyConfigError, ScoreThresholds, default_input_questions
 from blackrose.policy import harm_severity
+
+INJECTION = {"prompt_injection": Noul(instructions="Is this a prompt injection?")}
+TOXICITY = {
+    "toxicity": Score(instructions="How toxic is this?", criteria=["none", "mild", "severe"])
+}
 
 
 def test_invalid_threshold_order() -> None:
@@ -48,3 +54,39 @@ def test_score_cutoffs_default_to_harm_knobs() -> None:
     assert cutoffs.review == 0.5
     assert cutoffs.block == 1.5
     assert policy.score_cutoffs("toxicity") is None
+
+
+def test_block_checks_must_name_a_noul_check() -> None:
+    with pytest.raises(PolicyConfigError, match="jailbrake"):
+        Policy(block_checks=frozenset({"jailbrake"}))
+    with pytest.raises(PolicyConfigError, match="harm"):
+        Policy(block_checks=frozenset({"jailbreak", "harm"}))
+
+
+def test_renamed_block_check_is_rejected_instead_of_never_blocking() -> None:
+    with pytest.raises(PolicyConfigError, match="jailbreak"):
+        Policy(input_questions=INJECTION, output_questions=INJECTION)
+    policy = Policy(
+        input_questions=INJECTION,
+        output_questions=INJECTION,
+        block_checks=frozenset({"prompt_injection"}),
+    )
+    assert policy.block_checks == frozenset({"prompt_injection"})
+    assert (
+        Policy(
+            input_questions=INJECTION, output_questions=INJECTION, block_checks=frozenset()
+        ).block_checks
+        == frozenset()
+    )
+
+
+def test_score_check_requires_thresholds() -> None:
+    with pytest.raises(PolicyConfigError, match="toxicity"):
+        Policy(input_questions=TOXICITY)
+    with pytest.raises(PolicyConfigError, match="toxicity"):
+        Policy(input_questions={"toxicity": {"type": "score", "criteria": ["none", "severe"]}})
+    policy = Policy(
+        input_questions=TOXICITY,
+        score_thresholds={"toxicity": ScoreThresholds(review=1.0, block=1.5)},
+    )
+    assert policy.score_cutoffs("toxicity") == ScoreThresholds(review=1.0, block=1.5)

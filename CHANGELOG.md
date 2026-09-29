@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A present but unreadable answer for an expected check (unknown answer type,
+  `null`, non-numeric) now returns `review` (`unusable_answer`) instead of
+  silent `allow`. The JavaScript SDK does not validate responses, so this
+  path was reachable with real API responses.
+- `Policy` raises `PolicyConfigError` when a check could never affect the
+  verdict: a `block_checks` name that is not a Noul question, or a Score
+  question without a `score_thresholds` entry. Replacing both question
+  batteries now requires naming the Noul checks that may block.
 - Empty TypeSafe responses and missing expected checks now return `review`
   instead of silent `allow`.
 - Score/Choice answers with missing confidence are treated like low confidence
@@ -45,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `py.typed` for PEP 561, Python 3.10/3.12/3.13 CI matrix, test typecheck for
   the JS package, and lint/test before PyPI publish.
 - `SECURITY.md` and `CONTRIBUTING.md`.
+
+### Fixed
+
+- The JavaScript `Guard` no longer throws in runtimes without a `process`
+  global (browsers, Cloudflare Workers without `nodejs_compat`).
+- The npm package's repository URL points at `Dino-Kupinic/blackrose`.
 
 ## [0.1.0] - 2026-09-21
 

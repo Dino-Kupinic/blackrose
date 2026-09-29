@@ -71,6 +71,24 @@ guard.check_input({"role": "user", "content": user_message})
 await guard.checkInput({ role: "user", content: userMessage });
 ```
 
+## Latency budget
+
+Every check is a blocking TypeSafe call in your request path. The SDK defaults to a 10-second timeout per attempt with up to 2 retries, so one slow check can hold a chat turn for well over 30 seconds. Set a budget that fits your UX; on timeout `TypeSafeRequestError` is raised and you fail closed as above.
+
+::: code-group
+
+```python [Python]
+from typesafe_sdk import RetryPolicy
+
+guard = Guard(client_config={"timeout": 3.0, "retry": RetryPolicy(max_retries=1)})
+```
+
+```ts [JavaScript]
+const guard = new Guard({ clientConfig: { timeout: 3_000, retry: { maxRetries: 1 } } });
+```
+
+:::
+
 ## Observability
 
 Log `result.verdict`, `result.codes`, `result.reasons`, and `result.scores` next to your request id. Keep `raw` for debugging; avoid shipping full raw payloads (or prompts) to end users.

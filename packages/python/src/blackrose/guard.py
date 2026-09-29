@@ -77,8 +77,12 @@ class Guard:
         self._model = _resolve_model(model)
         self._owns_client = client is None
         self._closed = False
-        self._client: _SyncSystemOne = client or TypeSafeClient(
-            **_client_kwargs(api_key=api_key, model=self._model, client_config=client_config)
+        self._client: _SyncSystemOne = (
+            client
+            if client is not None
+            else TypeSafeClient(
+                **_client_kwargs(api_key=api_key, model=self._model, client_config=client_config)
+            )
         )
 
     def close(self) -> None:
@@ -131,8 +135,12 @@ class AsyncGuard:
         self._model = _resolve_model(model)
         self._owns_client = client is None
         self._closed = False
-        self._client: _AsyncSystemOne = client or AsyncTypeSafeClient(
-            **_client_kwargs(api_key=api_key, model=self._model, client_config=client_config)
+        self._client: _AsyncSystemOne = (
+            client
+            if client is not None
+            else AsyncTypeSafeClient(
+                **_client_kwargs(api_key=api_key, model=self._model, client_config=client_config)
+            )
         )
 
     async def aclose(self) -> None:
