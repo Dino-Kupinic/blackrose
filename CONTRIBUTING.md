@@ -10,6 +10,11 @@ cp .env.example .env   # only needed for live TypeSafe tests
 Requires Python 3.10+ (dev pinned to 3.12), [uv](https://docs.astral.sh/uv/),
 Bun 1.1+, and a TypeSafe API key for live tests.
 
+## Branches
+
+Open pull requests against `develop`. `main` receives `develop` through
+release merges, and Dependabot targets `develop` too.
+
 ## Checks
 
 From the repo root:
@@ -22,7 +27,8 @@ Python and JavaScript `decide` tests share `packages/shared/decide-cases.json`.
 If you change verdict mapping, add a case there so the two languages cannot
 drift.
 
-Optional live tests (not run in CI):
+Live tests (run weekly by the **Live API** workflow when the `TYPESAFE_API_KEY`
+repository secret is set):
 
 ```bash
 TYPESAFE_API_KEY=... uv run --directory packages/python pytest -m live
@@ -33,7 +39,10 @@ TYPESAFE_API_KEY=... bun --cwd packages/js run test:live
 
 Thresholds, missing-check behavior, and confidence handling are safety-critical.
 
-- Empty/missing answers and missing expected checks must not become `allow`.
+- Empty, missing, or unreadable answers for expected checks must not become
+  `allow`.
+- Policy settings that would make a check a silent no-op should raise
+  `PolicyConfigError`, not be ignored.
 - Catching `TypeSafeRequestError` and continuing is fail-open; do not do that
   in examples.
 - Prefer structured `CheckResult.codes` over parsing `reasons` strings.

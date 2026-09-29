@@ -1,0 +1,64 @@
+name: Live API
+
+# Catches drift between the TypeSafe API and Blackrose's response handling,
+# which mocked unit tests cannot see. Needs the TYPESAFE_API_KEY secret.
+on:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python live tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/python
+    env:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Warn when the API key is missing
+        if: env.TYPESAFE_API_KEY == ''
+        run: echo "::warning::TYPESAFE_API_KEY secret is not set; live tests will be skipped."
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync
+        run: uv sync --locked --all-groups
+
+      - name: Live tests
+        run: uv run pytest -m live
+
+  javascript:
+    name: JavaScript live tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/js
+    env:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Warn when the API key is missing
+        if: env.TYPESAFE_API_KEY == ''
+        run: echo "::warning::TYPESAFE_API_KEY secret is not set; live tests will be skipped."
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Live tests
+        run: bun run test:live
