@@ -1,7 +1,7 @@
 {
   "name": "blackrose",
   "version": "0.1.0",
-  "description": "TypeSafe decision layer for LLM apps: checkInput / checkOutput → allow | review | block",
+  "description": "Decision layer for LLM apps on pluggable decision models (TypeSafe, OpenAI Decisions): checkInput / checkOutput → allow | review | block",
   "type": "module",
   "license": "MIT",
   "author": "Dino Kupinic",
@@ -10,7 +10,9 @@
     "guardrails",
     "llm",
     "safety",
-    "jev"
+    "jev",
+    "openai",
+    "decisions"
   ],
   "engines": {
     "node": ">=20",

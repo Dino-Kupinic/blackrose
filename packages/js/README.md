@@ -1,6 +1,6 @@
 # Blackrose (JavaScript / TypeScript)
 
-Open-source TypeSafe decision layer: `checkInput` / `checkOutput` → `allow | review | block`.
+Open-source decision layer (TypeSafe by default, pluggable providers): `checkInput` / `checkOutput` → `allow | review | block`.
 
 See the repository root [README](../../README.md) for product thesis and setup.
 
@@ -12,7 +12,7 @@ bun add blackrose
 bun install
 ```
 
-Requires Bun 1.1+ (Node 20+ compatible publish) and a TypeSafe API key (`TYPESAFE_API_KEY`).
+Requires Bun 1.1+ (Node 20+ compatible publish) and, for the default provider, a TypeSafe API key (`TYPESAFE_API_KEY`). See [Providers](../../docs/src/guide/providers.md) for the experimental OpenAI Decisions provider.
 
 ## Quickstart
 
@@ -44,4 +44,4 @@ bun run test
 bun run build
 ```
 
-Tests mock TypeSafe responses — no live API key required.
+Tests mock provider responses — no live API key required.

@@ -1,52 +1,48 @@
-"""Sync and async Guard clients wrapping the official TypeSafe SDK."""
+"""Sync and async Guard clients over a pluggable decision-model provider."""
 
 from __future__ import annotations
 
-import os
-from collections.abc import Mapping
-from typing import Any, Protocol
-
-from typesafe_sdk import AsyncTypeSafeClient, Question, TypeSafeClient
+from typing import Any
 
 from blackrose.decide import decide
 from blackrose.policy import Policy
+from blackrose.providers import (
+    AsyncOpenAIDecisionsProvider,
+    AsyncProvider,
+    AsyncTypeSafeProvider,
+    OpenAIDecisionsProvider,
+    Provider,
+    TypeSafeProvider,
+    provider_name_from_env,
+)
 from blackrose.types import CheckResult
 
 State = Any  # JSONContent: str | Mapping | Sequence
 
 
-def _resolve_model(model: str | None) -> str | None:
-    if model is not None:
-        return model
-    for env in ("TYPESAFE_MODEL", "TYPESAFE_DEFAULT_MODEL"):
-        value = os.environ.get(env, "").strip()
-        if value:
-            return value
-    return "jev-latest"
+def _default_provider(api_key: str | None, model: str | None, client: Any) -> Provider:
+    if client is not None or provider_name_from_env() == "typesafe":
+        return TypeSafeProvider(api_key=api_key, model=model, client=client)
+    return OpenAIDecisionsProvider(model=model)
 
 
-class _SyncSystemOne(Protocol):
-    def system_one(
-        self,
-        state: State,
-        questions: Mapping[str, Question],
-        *,
-        model: str | None = None,
-    ) -> Any: ...
+def _default_async_provider(api_key: str | None, model: str | None, client: Any) -> AsyncProvider:
+    if client is not None or provider_name_from_env() == "typesafe":
+        return AsyncTypeSafeProvider(api_key=api_key, model=model, client=client)
+    return AsyncOpenAIDecisionsProvider(model=model)
 
 
-class _AsyncSystemOne(Protocol):
-    async def system_one(
-        self,
-        state: State,
-        questions: Mapping[str, Question],
-        *,
-        model: str | None = None,
-    ) -> Any: ...
+def _reject_mixed(provider: Any, api_key: str | None, model: str | None, client: Any) -> None:
+    if provider is not None and (api_key is not None or model is not None or client is not None):
+        raise ValueError("pass api_key/model/client to the provider, not alongside provider=")
 
 
 class Guard:
-    """Synchronous decision layer over TypeSafe ``system_one``."""
+    """Synchronous decision layer.
+
+    Uses ``provider`` if given; otherwise ``BLACKROSE_PROVIDER`` (default ``typesafe``).
+    ``client`` is kept for backwards compatibility and wraps a TypeSafe client.
+    """
 
     def __init__(
         self,
@@ -54,19 +50,17 @@ class Guard:
         api_key: str | None = None,
         model: str | None = None,
         policy: Policy | None = None,
-        client: _SyncSystemOne | None = None,
+        client: Any = None,
+        provider: Provider | None = None,
     ) -> None:
+        _reject_mixed(provider, api_key, model, client)
         self.policy = policy or Policy()
-        self._model = _resolve_model(model)
-        self._owns_client = client is None
-        self._client: _SyncSystemOne = client or TypeSafeClient(
-            api_key=api_key,
-            model=self._model,
-        )
+        self._owns_provider = provider is None
+        self.provider: Provider = provider or _default_provider(api_key, model, client)
 
     def close(self) -> None:
-        if self._owns_client and hasattr(self._client, "close"):
-            self._client.close()  # type: ignore[attr-defined]
+        if self._owns_provider:
+            self.provider.close()
 
     def __enter__(self) -> Guard:
         return self
@@ -82,12 +76,17 @@ class Guard:
 
     def _check(self, state: State, side: str) -> CheckResult:
         questions = self.policy.questions_for(side)
-        response = self._client.system_one(state, questions, model=self._model)
-        return decide(response, self.policy)
+        result = self.provider.decide(state, questions)
+        return decide(
+            result,
+            self.policy.for_provider(self.provider.name),
+            provider=self.provider.name,
+            calibrated=self.provider.calibrated,
+        )
 
 
 class AsyncGuard:
-    """Asynchronous decision layer over TypeSafe ``system_one``."""
+    """Asynchronous decision layer (see ``Guard``)."""
 
     def __init__(
         self,
@@ -95,19 +94,17 @@ class AsyncGuard:
         api_key: str | None = None,
         model: str | None = None,
         policy: Policy | None = None,
-        client: _AsyncSystemOne | None = None,
+        client: Any = None,
+        provider: AsyncProvider | None = None,
     ) -> None:
+        _reject_mixed(provider, api_key, model, client)
         self.policy = policy or Policy()
-        self._model = _resolve_model(model)
-        self._owns_client = client is None
-        self._client: _AsyncSystemOne = client or AsyncTypeSafeClient(
-            api_key=api_key,
-            model=self._model,
-        )
+        self._owns_provider = provider is None
+        self.provider: AsyncProvider = provider or _default_async_provider(api_key, model, client)
 
     async def aclose(self) -> None:
-        if self._owns_client and hasattr(self._client, "aclose"):
-            await self._client.aclose()  # type: ignore[attr-defined]
+        if self._owns_provider:
+            await self.provider.aclose()
 
     async def __aenter__(self) -> AsyncGuard:
         return self
@@ -123,5 +120,10 @@ class AsyncGuard:
 
     async def _check(self, state: State, side: str) -> CheckResult:
         questions = self.policy.questions_for(side)
-        response = await self._client.system_one(state, questions, model=self._model)
-        return decide(response, self.policy)
+        result = await self.provider.decide(state, questions)
+        return decide(
+            result,
+            self.policy.for_provider(self.provider.name),
+            provider=self.provider.name,
+            calibrated=self.provider.calibrated,
+        )
