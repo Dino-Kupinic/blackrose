@@ -1,107 +1,75 @@
-"""Map TypeSafe System One answers onto CheckResult verdicts."""
+"""Map normalized provider answers onto CheckResult verdicts.
+
+Vendor-neutral: reads only ``Answer`` objects (or shapes ``normalize_answers`` accepts).
+"""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 
+from blackrose.answers import Answer, ProviderResult, normalize_answers
 from blackrose.policy import Policy
 from blackrose.types import CheckResult, Verdict
 
 _PRECEDENCE: tuple[Verdict, ...] = ("block", "review", "allow")
 
 
-def _attr(obj: Any, name: str, default: Any = None) -> Any:
-    if obj is None:
-        return default
-    if isinstance(obj, Mapping):
-        return obj.get(name, default)
-    return getattr(obj, name, default)
-
-
-def _as_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _answers_view(raw: Any) -> Mapping[str, Any]:
-    """Normalize SDK response / mock into a name → answer mapping."""
-    if raw is None:
-        return {}
-    answers = _attr(raw, "answers")
-    if isinstance(answers, Mapping):
-        return answers
-
-    combined: dict[str, Any] = {}
-    for bucket in ("nouls", "scores", "choices"):
-        group = _attr(raw, bucket)
-        if isinstance(group, Mapping):
-            combined.update(group)
-    if combined:
-        return combined
-
-    if isinstance(raw, Mapping):
-        # Flat mock: {"jailbreak": {"noul": 0.9}, "harm": {"score": 2.1, "confidence": 0.8}}
-        return raw
-    return {}
+def _score_of(answer: Answer) -> float | None:
+    if answer.kind == "choice":
+        # Only report a choice when the provider gave the winning option's probability.
+        if answer.probabilities is None or answer.choice not in answer.probabilities:
+            return None
+    return answer.value
 
 
 def extract_scores(raw: Any) -> dict[str, float]:
-    """Pull named numeric signals from a TypeSafe response or mock dict."""
+    """Pull named numeric signals from a provider result, response or mock dict."""
     scores: dict[str, float] = {}
-    for name, answer in _answers_view(raw).items():
-        noul = _as_float(_attr(answer, "noul"))
-        if noul is not None:
-            scores[name] = noul
-            continue
-        score = _as_float(_attr(answer, "score"))
-        if score is not None:
-            scores[name] = score
-            continue
-        # Choice: store winning probability when available
-        choice = _attr(answer, "choice")
-        probs = _attr(answer, "probabilities")
-        if choice is not None and isinstance(probs, Mapping):
-            p = _as_float(probs.get(choice))
-            if p is not None:
-                scores[name] = p
+    for name, answer in normalize_answers(raw).items():
+        value = _score_of(answer)
+        if value is not None:
+            scores[name] = value
     return scores
 
 
-def decide(raw: Any, policy: Policy) -> CheckResult:
-    """Apply policy thresholds to TypeSafe answers.
+def decide(
+    raw: Any,
+    policy: Policy,
+    *,
+    provider: str | None = None,
+    calibrated: bool | None = None,
+) -> CheckResult:
+    """Apply policy thresholds to provider answers.
 
     Precedence: any ``block`` wins over ``review``; otherwise ``allow``.
-    Low Score/Choice confidence always contributes ``review``.
+    Low scale/choice confidence always contributes ``review``.
     """
-    answers = _answers_view(raw)
-    scores = extract_scores(raw)
+    answers = normalize_answers(raw)
+    scores = {name: value for name, a in answers.items() if (value := _score_of(a)) is not None}
     reasons: list[str] = []
     triggered: set[Verdict] = set()
 
     for name, answer in answers.items():
-        noul = _as_float(_attr(answer, "noul"))
-        if noul is not None:
-            if noul >= policy.block_threshold and name in policy.block_checks:
+        if answer.kind == "binary":
+            p = answer.value
+            if p >= policy.block_threshold and name in policy.block_checks:
                 triggered.add("block")
-                reasons.append(f"{name}={noul:.2f} >= block_threshold ({policy.block_threshold})")
-            elif noul >= policy.review_threshold:
+                reasons.append(f"{name}={p:.2f} >= block_threshold ({policy.block_threshold})")
+            elif p >= policy.review_threshold:
                 triggered.add("review")
-                reasons.append(f"{name}={noul:.2f} >= review_threshold ({policy.review_threshold})")
+                reasons.append(f"{name}={p:.2f} >= review_threshold ({policy.review_threshold})")
             continue
 
-        score = _as_float(_attr(answer, "score"))
-        confidence = _as_float(_attr(answer, "confidence"))
-        if score is not None:
-            if confidence is not None and confidence < policy.min_confidence:
-                triggered.add("review")
-                reasons.append(
-                    f"{name} confidence={confidence:.2f} < min_confidence ({policy.min_confidence})"
-                )
+        # Scale and choice: low confidence → review; never silent allow on uncertainty
+        confidence = answer.confidence
+        if confidence is not None and confidence < policy.min_confidence:
+            triggered.add("review")
+            reasons.append(
+                f"{name} confidence={confidence:.2f} < min_confidence ({policy.min_confidence})"
+            )
+
+        if answer.kind == "scale":
+            score = answer.value
             if score >= policy.harm_block_score:
                 triggered.add("block")
                 reasons.append(
@@ -112,15 +80,13 @@ def decide(raw: Any, policy: Policy) -> CheckResult:
                 reasons.append(
                     f"{name}={score:.2f} >= harm_review_score ({policy.harm_review_score})"
                 )
-            continue
-
-        # Choice answers: low confidence → review; never silent allow on uncertainty
-        confidence = _as_float(_attr(answer, "confidence"))
-        if confidence is not None and confidence < policy.min_confidence:
-            triggered.add("review")
-            reasons.append(
-                f"{name} confidence={confidence:.2f} < min_confidence ({policy.min_confidence})"
-            )
 
     verdict: Verdict = next((v for v in _PRECEDENCE if v in triggered), "allow")
-    return CheckResult(verdict=verdict, reasons=reasons, scores=scores, raw=raw)
+    return CheckResult(
+        verdict=verdict,
+        reasons=reasons,
+        scores=scores,
+        raw=raw.raw if isinstance(raw, ProviderResult) else raw,
+        provider=provider,
+        calibrated=calibrated,
+    )

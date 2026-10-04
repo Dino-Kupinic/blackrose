@@ -1,12 +1,12 @@
 [project]
 name = "blackrose"
 version = "0.1.0"
-description = "TypeSafe decision layer for LLM apps: check_input / check_output → allow | review | block"
+description = "Decision layer for LLM apps on pluggable decision models (TypeSafe, OpenAI Decisions): check_input / check_output → allow | review | block"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Dino Kupinic" }]
-keywords = ["typesafe", "guardrails", "llm", "safety", "jev"]
+keywords = ["typesafe", "guardrails", "llm", "safety", "jev", "openai", "decisions"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",

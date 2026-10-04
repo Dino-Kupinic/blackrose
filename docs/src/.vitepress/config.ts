@@ -2,7 +2,7 @@ import { DefaultTheme } from "vitepress"
 
 export default {
   title: "Blackrose",
-  description: "TypeSafe decision layer for LLM apps — allow | review | block",
+  description: "Decision layer for LLM apps on any decision model — allow | review | block",
   sitemap: {
     hostname: "https://blackrose.dev"
   },
@@ -43,6 +43,10 @@ function nav(): DefaultTheme.NavItem[] {
     {
       text: "Guide",
       link: "/guide/getting-started"
+    },
+    {
+      text: "Providers",
+      link: "/guide/providers"
     }
   ]
 }

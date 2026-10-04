@@ -1,6 +1,6 @@
 # Getting Started
 
-**Decide before you generate.** Blackrose runs TypeSafe checks on LLM input and output and returns `allow | review | block`. The README at the repo root is the source of truth for v0.1; this page is a short path through it.
+**Decide before you generate.** Blackrose asks a decision model (TypeSafe by default) typed questions about LLM input and output and returns `allow | review | block`. To use another provider, see [Providers](./providers.md). The README at the repo root is the source of truth for v0.1; this page is a short path through it.
 
 ## 1. API key
 
