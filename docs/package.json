@@ -15,6 +15,6 @@
   "author": "Dino Kupinic",
   "license": "ISC",
   "devDependencies": {
-    "vitepress": "^1.2.3"
+    "vitepress": "^1.6.4"
   }
 }
