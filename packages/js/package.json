@@ -50,7 +50,7 @@
     "prepublishOnly": "bun run build && bun run test"
   },
   "dependencies": {
-    "@typesafe-ai/sdk": "^0.6.0"
+    "@typesafe-ai/sdk": "^0.7.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.2",
